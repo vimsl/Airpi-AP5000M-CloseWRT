@@ -1,0 +1,165 @@
+#!/bin/sh
+# 5G Dashboard Backend API - FM170-EAU
+# 输出JSON供前端main.js消费
+
+. /usr/share/libubox/jshn.sh
+
+AT_TIMEOUT=3
+
+find_at_port() {
+    for port in /dev/ttyUSB2 /dev/ttyUSB3 /dev/ttyUSB1 /dev/ttyUSB0; do
+        if [ -e "$port" ]; then
+            stty -F "$port" 115200 raw -echo 2>/dev/null
+            local resp
+            resp=$(timeout 2 sh -c "echo -e 'AT\r' > ${port} && cat < ${port}" 2>/dev/null | head -5)
+            if echo "$resp" | grep -q "OK"; then
+                echo "$port"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+send_at() {
+    local cmd="$1"
+    local port="$2"
+    timeout $AT_TIMEOUT sh -c "
+        stty -F '$port' 115200 raw -echo 2>/dev/null
+        > '$port'
+        echo -e '${cmd}\r' > '$port'
+        sleep 0.5
+        cat < '$port'
+    " 2>/dev/null | tr -d '\r'
+}
+
+get_cell_info() { send_at "AT+GTCCINFO?" "$1"; }
+get_operator() { send_at "AT+COPS?" "$1"; }
+get_ip_addr() { send_at "AT+CGPADDR=1" "$1"; }
+get_network_status() { send_at "AT+CREG?" "$1"; }
+
+get_temperature() {
+    if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
+        echo $(($(cat /sys/class/thermal/thermal_zone0/temp) / 1000))
+    else echo 0; fi
+}
+
+get_traffic() {
+    local iface="$1" rx=0 tx=0
+    [ -f "/sys/class/net/${iface}/statistics/rx_bytes" ] && rx=$(cat "/sys/class/net/${iface}/statistics/rx_bytes")
+    [ -f "/sys/class/net/${iface}/statistics/tx_bytes" ] && tx=$(cat "/sys/class/net/${iface}/statistics/tx_bytes")
+    echo "$rx $tx"
+}
+
+detect_wwan_iface() {
+    for iface in wwan0 wwan1 rmnet_mhi0; do
+        [ -d "/sys/class/net/${iface}" ] && { echo "$iface"; return 0; }
+    done
+    echo "unknown"
+}
+
+calc_score() {
+    local rsrp="$1" sinr="$2" rs=0 ss=0
+    if [ -n "$rsrp" ] && [ "$rsrp" != "" ]; then
+        if [ "$rsrp" -ge -80 ] 2>/dev/null; then rs=40
+        elif [ "$rsrp" -le -130 ] 2>/dev/null; then rs=0
+        else rs=$(( (rsrp + 130) * 40 / 70 )); fi
+    fi
+    if [ -n "$sinr" ] && [ "$sinr" != "" ]; then
+        if [ "$sinr" -ge 30 ] 2>/dev/null; then ss=60
+        elif [ "$sinr" -le -10 ] 2>/dev/null; then ss=0
+        else ss=$(( (sinr + 10) * 60 / 40 )); fi
+    fi
+    echo $((rs + ss))
+}
+
+main() {
+    local at_port=$(find_at_port)
+    local temp=$(get_temperature)
+    local iface=$(detect_wwan_iface)
+    local traffic=$(get_traffic "$iface")
+    local rx=$(echo $traffic | cut -d' ' -f1)
+    local tx=$(echo $traffic | cut -d' ' -f2)
+
+    # 网络连通性
+    local net_status="disconnected"
+    ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1 && net_status="connected"
+
+    json_init
+
+    # 基础状态
+    json_add_string "networkStatus" "$net_status"
+    json_add_int "temperature" "$temp"
+    json_add_int "downloadSpeed" 0
+    json_add_int "uploadSpeed" 0
+    json_add_int "downloadBandwidth" 0
+    json_add_int "uploadBandwidth" 0
+    json_add_string "networkMode" "--"
+    json_add_string "operator" "--"
+    json_add_string "cellId" "--"
+    json_add_string "ipv4" "--"
+    json_add_string "ipv6" "--"
+    json_add_int "qci" 0
+    json_add_int "rsrp" -130
+    json_add_int "sinr" -10
+    json_add_int "rsrq" -25
+    json_add_string "band" "0"
+    json_add_string "bandwidth" "0"
+    json_add_string "arfcn" "0"
+    json_add_string "pci" "0"
+    json_add_string "antMain" "--"
+    json_add_string "antDiv" "--"
+    json_add_string "antMimo1" "--"
+    json_add_string "antMimo2" "--"
+
+    if [ -n "$at_port" ]; then
+        # 运营商
+        local cops=$(get_operator "$at_port")
+        local op=$(echo "$cops" | sed -n 's/.*+COPS: [0-9]*,[0-9]*,"\([^"]*\)".*/\1/p')
+        [ -n "$op" ] && json_add_string "operator" "$op"
+
+        # 网络模式
+        local mode=$(echo "$cops" | grep -oP '(?<=,\d+\)$)' | tail -1)
+        [ -z "$mode" ] && mode="0"
+        case "$mode" in
+            7) json_add_string "networkMode" "LTE" ;;
+            11) json_add_string "networkMode" "NR5G-SA" ;;
+            13) json_add_string "networkMode" "NR5G-NSA" ;;
+            *) json_add_string "networkMode" "未知" ;;
+        esac
+
+        # 小区信息 AT+GTCCINFO?
+        local cell=$(get_cell_info "$at_port")
+        local cell_line=$(echo "$cell" | grep -i "GTCCINFO" | head -1)
+        if [ -n "$cell_line" ]; then
+            cell_line=$(echo "$cell_line" | sed 's/.*+GTCCINFO: //' | tr -d ' ')
+            local band=$(echo "$cell_line" | cut -d',' -f7)
+            local arfcn=$(echo "$cell_line" | cut -d',' -f5)
+            local pci=$(echo "$cell_line" | cut -d',' -f6)
+            local rsrp=$(echo "$cell_line" | cut -d',' -f8)
+            local rsrq=$(echo "$cell_line" | cut -d',' -f9)
+            local sinr=$(echo "$cell_line" | cut -d',' -f10)
+
+            [ -n "$band" ] && json_add_string "band" "$band"
+            [ -n "$arfcn" ] && json_add_string "arfcn" "$arfcn"
+            [ -n "$pci" ] && json_add_string "pci" "$pci"
+            [ -n "$rsrp" ] && json_add_int "rsrp" "$rsrp"
+            [ -n "$rsrq" ] && json_add_int "rsrq" "$rsrq"
+            [ -n "$sinr" ] && json_add_int "sinr" "$sinr"
+
+            # 带宽(默认100MHz for NR)
+            json_add_string "bandwidth" "100"
+        fi
+
+        # IP地址
+        local ip_resp=$(get_ip_addr "$at_port")
+        local ipv4=$(echo "$ip_resp" | grep -oP '"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | head -1)
+        local ipv6=$(echo "$ip_resp" | grep -oP '"[0-9a-fA-F:]+[^"]*"' | tr -d '"' | tail -1)
+        [ -n "$ipv4" ] && json_add_string "ipv4" "$ipv4"
+        [ -n "$ipv6" ] && json_add_string "ipv6" "$ipv6"
+    fi
+
+    json_dump
+}
+
+main

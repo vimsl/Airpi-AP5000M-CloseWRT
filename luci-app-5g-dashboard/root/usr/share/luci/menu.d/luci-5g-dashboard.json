@@ -1,0 +1,19 @@
+{
+    "admin/network/5g-dashboard": {
+        "title": "5G Dashboard",
+        "order": 50,
+        "action": {
+            "type": "web",
+            "path": "/5g-dashboard/"
+        },
+        "depends": {
+            "uci": {
+                "network": {
+                    "interface": {
+                        "proto": ["qmi", "ncm", "mbim", "wwan"]
+                    }
+                }
+            }
+        }
+    }
+}

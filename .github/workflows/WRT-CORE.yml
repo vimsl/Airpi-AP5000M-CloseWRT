@@ -175,6 +175,9 @@ jobs:
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
 
+          # 复制本地5G看板插件
+          cp -rf $GITHUB_WORKSPACE/luci-app-5g-dashboard ./luci-app-5g-dashboard
+
       - name: Custom Settings
         run: |
           cd ./wrt/
