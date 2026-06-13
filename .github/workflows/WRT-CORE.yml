@@ -37,6 +37,9 @@ on:
       WRT_PACKAGE:
         required: false
         type: string
+      WRT_COMMIT:
+        required: false
+        type: string
       WRT_TEST:
         required: false
         type: string
@@ -54,6 +57,7 @@ env:
   WRT_BRANCH: ${{inputs.WRT_BRANCH}}
   WRT_SOURCE: ${{inputs.WRT_SOURCE}}
   WRT_PACKAGE: ${{inputs.WRT_PACKAGE}}
+  WRT_COMMIT: ${{inputs.WRT_COMMIT}}
   WRT_TEST: ${{inputs.WRT_TEST}}
 
 jobs:
@@ -94,7 +98,13 @@ jobs:
 
       - name: Clone Code
         run: |
-          git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
+          if [ -n "$WRT_COMMIT" ]; then
+            echo "Pinning to commit: $WRT_COMMIT"
+            git clone --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
+            cd ./wrt/ && git checkout $WRT_COMMIT
+          else
+            git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
+          fi
 
           cd ./wrt/ && echo "WRT_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
 

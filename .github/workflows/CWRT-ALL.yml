@@ -13,6 +13,10 @@ on:
         description: '手动调整插件包，多个请用\n符号隔开。'
         required: false
         type: string
+      COMMIT:
+        description: '锁定上游源码commit hash（留空则用最新）。如 33afabe'
+        required: false
+        type: string
       TEST:
         description: '仅输出配置文件，不编译固件。'
         default: 'false'
@@ -35,7 +39,7 @@ jobs:
         with:
           gh_token: ${{secrets.GITHUB_TOKEN}}
           delete_releases: true
-          releases_keep_latest: 5
+          releases_keep_latest: 10
           delete_tags: true
           delete_workflows: true
           workflows_keep_day: 5
@@ -76,5 +80,7 @@ jobs:
       WRT_SOURCE: ${{matrix.REPO_INFO.SOURCE}}
       #插件调整
       WRT_PACKAGE: ${{inputs.PACKAGE}}
+      #锁定上游commit
+      WRT_COMMIT: ${{inputs.COMMIT}}
       #仅输出配置文件
       WRT_TEST: ${{inputs.TEST}}
