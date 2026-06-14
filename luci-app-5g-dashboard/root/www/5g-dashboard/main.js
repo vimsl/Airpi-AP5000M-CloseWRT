@@ -1,4 +1,4 @@
-// ===== DOM 缓存 =====
+// ===== DOM 缂撳瓨 =====
 var $ = function(id) { return document.getElementById(id); };
 var cache = {
   dlI: $('dl-i'), dlD: $('dl-d'), ulI: $('ul-i'), ulD: $('ul-d'),
@@ -14,7 +14,7 @@ var cache = {
   cardSt: $('card-st')
 };
 
-// ===== 工具函数 =====
+// ===== 宸ュ叿鍑芥暟 =====
 function safe(v, fallback) {
   if (v === null || v === undefined || v === '' || v === 'undefined' || v === 'null') {
     return fallback !== undefined ? fallback : '--';
@@ -37,16 +37,15 @@ function splitSpeed(val) {
   return { int: parts[0], dec: '.' + parts[1] };
 }
 
-// ===== 核心更新函数 =====
+// ===== 鏍稿績鏇存柊鍑芥暟 =====
 function updateDashboard(data) {
   if (!data || typeof data !== 'object') return;
 
-  // 网络状态
-  var connected = data.networkStatus === 'connected';
+  // 缃戠粶鐘舵€?  var connected = data.networkStatus === 'connected';
   cache.stDot.style.background = connected ? '#52C41A' : '#FF4D4F';
-  cache.stTxt.textContent = connected ? '已连接互联网' : '未连接/无服务';
+  cache.stTxt.textContent = connected ? '宸茶繛鎺ヤ簰鑱旂綉' : '鏈繛鎺?鏃犳湇鍔?;
 
-  // 速率
+  // 閫熺巼
   var dl = splitSpeed(data.downloadSpeed);
   var ul = splitSpeed(data.uploadSpeed);
   cache.dlI.textContent = dl.int;
@@ -54,12 +53,12 @@ function updateDashboard(data) {
   cache.ulI.textContent = ul.int;
   cache.ulD.textContent = ul.dec;
 
-  // 温度
+  // 娓╁害
   var temp = safeNum(data.temperature, 0);
-  cache.tmp.textContent = temp + ' °C';
+  cache.tmp.textContent = temp + ' 掳C';
   cache.tmp.style.color = temp > 65 ? '#FF4D4F' : temp > 50 ? '#FAAD14' : '';
 
-  // 网络信息
+  // 缃戠粶淇℃伅
   cache.vOp.textContent = safe(data.operator);
   cache.vMode.textContent = safe(data.networkMode);
   cache.vDlbw.textContent = safe(data.downloadBandwidth, '--') + ' Mbps';
@@ -94,8 +93,7 @@ function updateDashboard(data) {
   cache.barRsrq.style.width = rsrqPct + '%';
   cache.barRsrq.style.backgroundColor = rsrqColor;
 
-  // 综合质量评分（NaN保护）
-  var rsrpScore = 0, sinrScore = 0, totalScore = 0;
+  // 缁煎悎璐ㄩ噺璇勫垎锛圢aN淇濇姢锛?  var rsrpScore = 0, sinrScore = 0, totalScore = 0;
   if (!isNaN(rsrp) && rsrp !== 0) {
     rsrpScore = Math.max(0, Math.min(40, ((rsrp + 130) / 70) * 40));
   }
@@ -113,8 +111,7 @@ function updateDashboard(data) {
   else if (totalScore >= 40) { cache.gpg.style.stroke = '#FA8C16'; cache.gval.style.color = '#262626'; }
   else { cache.gpg.style.stroke = '#FF4D4F'; cache.gval.style.color = '#FF4D4F'; }
 
-  // 信号格
-  var bars = cache.sigBars;
+  // 淇″彿鏍?  var bars = cache.sigBars;
   var activeBars = 0;
   if (rsrp >= -80) activeBars = 5;
   else if (rsrp >= -90) activeBars = 4;
@@ -130,20 +127,20 @@ function updateDashboard(data) {
     }
   }
 
-  // 频段信息
+  // 棰戞淇℃伅
   var bandVal = safe(data.band);
   cache.vBand.textContent = (bandVal !== '--' && bandVal !== '0') ? 'n' + bandVal : '--';
   cache.vBw.textContent = safe(data.bandwidth, '--') + ' MHz';
   cache.vArfcn.textContent = safe(data.arfcn);
   cache.vPci.textContent = safe(data.pci);
 
-  // 天线分集
+  // 澶╃嚎鍒嗛泦
   cache.vMain.textContent = safe(data.antMain, '--') + (safe(data.antMain, '--') !== '--' ? ' dBm' : '');
   cache.vDiv.textContent = safe(data.antDiv, '--') + (safe(data.antDiv, '--') !== '--' ? ' dBm' : '');
   cache.vMimo1.textContent = safe(data.antMimo1, '--') + (safe(data.antMimo1, '--') !== '--' ? ' dBm' : '');
   cache.vMimo2.textContent = safe(data.antMimo2, '--') + (safe(data.antMimo2, '--') !== '--' ? ' dBm' : '');
 
-  // 潮汐波浪
+  // 娼睈娉㈡氮
   var dlSpeed = safeNum(data.downloadSpeed, 0);
   var waveH, waveS;
   if (dlSpeed <= 0) { waveH = '-10%'; waveS = '10s'; }
@@ -155,7 +152,7 @@ function updateDashboard(data) {
   cache.cardSt.style.setProperty('--ws', waveS);
 }
 
-// ===== Mock数据（本地调试用） =====
+// ===== Mock鏁版嵁锛堟湰鍦拌皟璇曠敤锛?=====
 var MOCK_DATA = {
   networkStatus: 'connected',
   downloadSpeed: 156.78,
@@ -182,17 +179,17 @@ var MOCK_DATA = {
   antMimo2: -113
 };
 
-// ===== 时钟 =====
+// ===== 鏃堕挓 =====
 function updateClock() {
   var n = new Date();
-  var w = ['日','一','二','三','四','五','六'];
-  $('dt').textContent = n.getFullYear() + '年' + (n.getMonth()+1) + '月' + n.getDate() + '日 星期' + w[n.getDay()] + ' ' +
+  var w = ['鏃?,'涓€','浜?,'涓?,'鍥?,'浜?,'鍏?];
+  $('dt').textContent = n.getFullYear() + '骞? + (n.getMonth()+1) + '鏈? + n.getDate() + '鏃?鏄熸湡' + w[n.getDay()] + ' ' +
     String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
 }
 updateClock();
 setInterval(updateClock, 1000);
 
-// ===== 真实数据请求 =====
+// ===== 鐪熷疄鏁版嵁璇锋眰 =====
 var API_URL = '/cgi-bin/get_5g_info';
 var POLL_INTERVAL = 3000;
 
@@ -210,14 +207,14 @@ function fetchRouterData() {
       }
     })
     .catch(function(err) {
-      console.warn('[5G Dashboard] API请求失败，使用Mock数据:', err.message);
+      console.warn('[5G Dashboard] API璇锋眰澶辫触锛屼娇鐢∕ock鏁版嵁:', err.message);
       updateDashboard(MOCK_DATA);
     });
 }
 
-// 首次加载（先显示Mock，等API响应后覆盖）
+// 棣栨鍔犺浇锛堝厛鏄剧ずMock锛岀瓑API鍝嶅簲鍚庤鐩栵級
 updateDashboard(MOCK_DATA);
 fetchRouterData();
 
-// 轮询
+// 杞
 setInterval(fetchRouterData, POLL_INTERVAL);

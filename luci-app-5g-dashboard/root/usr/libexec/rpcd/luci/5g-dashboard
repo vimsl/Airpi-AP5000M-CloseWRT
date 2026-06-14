@@ -1,6 +1,6 @@
 #!/bin/sh
 # 5G Dashboard Backend API - FM170-EAU
-# 输出JSON供前端main.js消费
+# 杈撳嚭JSON渚涘墠绔痬ain.js娑堣垂
 
 . /usr/share/libubox/jshn.sh
 
@@ -81,14 +81,12 @@ main() {
     local rx=$(echo $traffic | cut -d' ' -f1)
     local tx=$(echo $traffic | cut -d' ' -f2)
 
-    # 网络连通性
-    local net_status="disconnected"
+    # 缃戠粶杩為€氭€?    local net_status="disconnected"
     ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1 && net_status="connected"
 
     json_init
 
-    # 基础状态
-    json_add_string "networkStatus" "$net_status"
+    # 鍩虹鐘舵€?    json_add_string "networkStatus" "$net_status"
     json_add_int "temperature" "$temp"
     json_add_int "downloadSpeed" 0
     json_add_int "uploadSpeed" 0
@@ -113,22 +111,21 @@ main() {
     json_add_string "antMimo2" "--"
 
     if [ -n "$at_port" ]; then
-        # 运营商
-        local cops=$(get_operator "$at_port")
+        # 杩愯惀鍟?        local cops=$(get_operator "$at_port")
         local op=$(echo "$cops" | sed -n 's/.*+COPS: [0-9]*,[0-9]*,"\([^"]*\)".*/\1/p')
         [ -n "$op" ] && json_add_string "operator" "$op"
 
-        # 网络模式
+        # 缃戠粶妯″紡
         local mode=$(echo "$cops" | grep -oP '(?<=,\d+\)$)' | tail -1)
         [ -z "$mode" ] && mode="0"
         case "$mode" in
             7) json_add_string "networkMode" "LTE" ;;
             11) json_add_string "networkMode" "NR5G-SA" ;;
             13) json_add_string "networkMode" "NR5G-NSA" ;;
-            *) json_add_string "networkMode" "未知" ;;
+            *) json_add_string "networkMode" "鏈煡" ;;
         esac
 
-        # 小区信息 AT+GTCCINFO?
+        # 灏忓尯淇℃伅 AT+GTCCINFO?
         local cell=$(get_cell_info "$at_port")
         local cell_line=$(echo "$cell" | grep -i "GTCCINFO" | head -1)
         if [ -n "$cell_line" ]; then
@@ -147,11 +144,11 @@ main() {
             [ -n "$rsrq" ] && json_add_int "rsrq" "$rsrq"
             [ -n "$sinr" ] && json_add_int "sinr" "$sinr"
 
-            # 带宽(默认100MHz for NR)
+            # 甯﹀(榛樿100MHz for NR)
             json_add_string "bandwidth" "100"
         fi
 
-        # IP地址
+        # IP鍦板潃
         local ip_resp=$(get_ip_addr "$at_port")
         local ipv4=$(echo "$ip_resp" | grep -oP '"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | head -1)
         local ipv6=$(echo "$ip_resp" | grep -oP '"[0-9a-fA-F:]+[^"]*"' | tr -d '"' | tail -1)

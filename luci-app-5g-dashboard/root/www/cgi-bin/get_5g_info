@@ -1,6 +1,5 @@
 #!/bin/sh
-# 5G Dashboard CGI - 输出JSON供前端消费
-# 基于广和通FM170-EAU AT指令
+# 5G Dashboard CGI - 杈撳嚭JSON渚涘墠绔秷璐?# 鍩轰簬骞垮拰閫欶M170-EAU AT鎸囦护
 
 echo "Content-Type: application/json"
 echo "Cache-Control: no-cache"
@@ -54,7 +53,7 @@ main() {
     local temp=$(get_temperature)
     local iface=$(detect_wwan_iface)
 
-    # 速率(从/proc/net/dev获取)
+    # 閫熺巼(浠?proc/net/dev鑾峰彇)
     local rx_bytes=0 tx_bytes=0
     if [ -f "/sys/class/net/${iface}/statistics/rx_bytes" ]; then
         rx_bytes=$(cat "/sys/class/net/${iface}/statistics/rx_bytes")
@@ -86,16 +85,14 @@ main() {
     json_add_string "antMimo1" "--"
     json_add_string "antMimo2" "--"
 
-    # 网络连通性
-    ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1 && json_add_string "networkStatus" "connected"
+    # 缃戠粶杩為€氭€?    ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1 && json_add_string "networkStatus" "connected"
 
     if [ -n "$at_port" ]; then
-        # 运营商
-        local cops=$(send_at "AT+COPS?" "$at_port")
+        # 杩愯惀鍟?        local cops=$(send_at "AT+COPS?" "$at_port")
         local op=$(echo "$cops" | sed -n 's/.*+COPS: [0-9]*,[0-9]*,"\([^"]*\)".*/\1/p')
         [ -n "$op" ] && json_add_string "operator" "$op"
 
-        # 网络模式
+        # 缃戠粶妯″紡
         local rat=$(echo "$cops" | grep -oP '\d+(?=\)$)' | tail -1)
         case "$rat" in
             7) json_add_string "networkMode" "LTE" ;;
@@ -103,7 +100,7 @@ main() {
             13) json_add_string "networkMode" "NR5G-NSA" ;;
         esac
 
-        # 小区信息
+        # 灏忓尯淇℃伅
         local cell=$(send_at "AT+GTCCINFO?" "$at_port")
         local cl=$(echo "$cell" | grep -i "GTCCINFO" | head -1)
         if [ -n "$cl" ]; then
@@ -123,7 +120,7 @@ main() {
             json_add_string "bandwidth" "100"
         fi
 
-        # IP地址
+        # IP鍦板潃
         local ip=$(send_at "AT+CGPADDR=1" "$at_port")
         local ipv4=$(echo "$ip" | grep -oP '"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | head -1)
         local ipv6=$(echo "$ip" | grep -oP '"[0-9a-fA-F:]+[^"]*"' | tr -d '"' | tail -1)

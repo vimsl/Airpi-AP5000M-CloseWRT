@@ -3,34 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>5G 蜂窝网络看板</title>
+<title>5G 铚傜獫缃戠粶鐪嬫澘</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="page-header">
-  <span class="page-title">运行状态</span>
+  <span class="page-title">杩愯鐘舵€?/span>
   <span class="page-datetime" id="dt"></span>
 </div>
 
 <div class="dashboard">
   <div class="left-col">
-    <!-- 状态与速率 -->
+    <!-- 鐘舵€佷笌閫熺巼 -->
     <div class="card card-st" id="card-st" style="--wh:-10%;--ws:10s">
       <div class="wave-ct"><div class="wave w1"></div><div class="wave w2"></div></div>
       <div class="card-hd">
-        <div><span class="st-dot" id="st-dot"></span><span class="st-txt" id="st-txt">检测中...</span></div>
+        <div><span class="st-dot" id="st-dot"></span><span class="st-txt" id="st-txt">妫€娴嬩腑...</span></div>
       </div>
       <div class="card-bd">
         <div class="nt">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2"><path d="M4 20h4M8 16v4M12 12v8M16 8v12M20 4v16"/></svg>
-          <span class="nt-t">5G 蜂窝网络</span>
+          <span class="nt-t">5G 铚傜獫缃戠粶</span>
         </div>
         <div class="sp-sec">
           <div class="sp-item">
             <div class="sp-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
             <div class="sp-info">
-              <span class="sp-lbl">下行速率</span>
+              <span class="sp-lbl">涓嬭閫熺巼</span>
               <div class="sp-val"><span class="sp-num" id="dl-i">0</span><span class="sp-dec" id="dl-d">.00</span><span class="sp-unit">Mbps</span></div>
             </div>
           </div>
@@ -38,7 +38,7 @@
           <div class="sp-item">
             <div class="sp-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
             <div class="sp-info">
-              <span class="sp-lbl">上行速率</span>
+              <span class="sp-lbl">涓婅閫熺巼</span>
               <div class="sp-val"><span class="sp-num" id="ul-i">0</span><span class="sp-dec" id="ul-d">.00</span><span class="sp-unit">Mbps</span></div>
             </div>
           </div>
@@ -46,30 +46,30 @@
       </div>
     </div>
 
-    <!-- 网络信息 -->
+    <!-- 缃戠粶淇℃伅 -->
     <div class="card">
-      <div class="card-hd"><span class="card-tt">网络信息</span></div>
+      <div class="card-hd"><span class="card-tt">缃戠粶淇℃伅</span></div>
       <div class="card-bd">
         <div class="info-list">
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(64,150,255,0.1)"><svg viewBox="0 0 24 24" fill="#4096FF"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></span><span class="info-lbl">运营商</span></div><span class="info-val" id="v-op">--</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(82,196,26,0.1)"><svg viewBox="0 0 24 24" fill="#52C41A"><path d="M2 22h20V2z"/></svg></span><span class="info-lbl">网络模式</span></div><span class="info-val" id="v-mode">--</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(0,188,212,0.1)"><svg viewBox="0 0 24 24" fill="#00BCD4"><path d="M12 5v14M5 12l7 7 7-7"/></svg></span><span class="info-lbl">下行带宽</span></div><span class="info-val" id="v-dlbw">-- Mbps</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(250,140,22,0.1)"><svg viewBox="0 0 24 24" fill="#FA8C16"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span><span class="info-lbl">上行带宽</span></div><span class="info-val" id="v-ulbw">-- Mbps</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(114,46,209,0.1)"><svg viewBox="0 0 24 24" fill="#722ED1"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span><span class="info-lbl">优先级 (QCI)</span></div><span class="info-val" id="v-qci">--</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(255,77,79,0.1)"><svg viewBox="0 0 24 24" fill="#FF4D4F"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></span><span class="info-lbl">基站 ID (Cell)</span></div><span class="info-val" id="v-cell">--</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(96,125,139,0.1)"><svg viewBox="0 0 24 24" fill="#607D8B"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></span><span class="info-lbl">IPv4 地址</span></div><span class="info-val" id="v-ip4">--</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(121,85,72,0.1)"><svg viewBox="0 0 24 24" fill="#795548"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></span><span class="info-lbl">IPv6 地址</span></div><span class="info-val info-val-long" id="v-ip6" title="--">--</span></div>
-          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(0,150,136,0.1)"><svg viewBox="0 0 24 24" fill="#009688"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4z"/></svg></span><span class="info-lbl">设备温度</span></div><span class="info-val" id="v-temp">-- °C</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(64,150,255,0.1)"><svg viewBox="0 0 24 24" fill="#4096FF"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></span><span class="info-lbl">杩愯惀鍟?/span></div><span class="info-val" id="v-op">--</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(82,196,26,0.1)"><svg viewBox="0 0 24 24" fill="#52C41A"><path d="M2 22h20V2z"/></svg></span><span class="info-lbl">缃戠粶妯″紡</span></div><span class="info-val" id="v-mode">--</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(0,188,212,0.1)"><svg viewBox="0 0 24 24" fill="#00BCD4"><path d="M12 5v14M5 12l7 7 7-7"/></svg></span><span class="info-lbl">涓嬭甯﹀</span></div><span class="info-val" id="v-dlbw">-- Mbps</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(250,140,22,0.1)"><svg viewBox="0 0 24 24" fill="#FA8C16"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span><span class="info-lbl">涓婅甯﹀</span></div><span class="info-val" id="v-ulbw">-- Mbps</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(114,46,209,0.1)"><svg viewBox="0 0 24 24" fill="#722ED1"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span><span class="info-lbl">浼樺厛绾?(QCI)</span></div><span class="info-val" id="v-qci">--</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(255,77,79,0.1)"><svg viewBox="0 0 24 24" fill="#FF4D4F"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></span><span class="info-lbl">鍩虹珯 ID (Cell)</span></div><span class="info-val" id="v-cell">--</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(96,125,139,0.1)"><svg viewBox="0 0 24 24" fill="#607D8B"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></span><span class="info-lbl">IPv4 鍦板潃</span></div><span class="info-val" id="v-ip4">--</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(121,85,72,0.1)"><svg viewBox="0 0 24 24" fill="#795548"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></span><span class="info-lbl">IPv6 鍦板潃</span></div><span class="info-val info-val-long" id="v-ip6" title="--">--</span></div>
+          <div class="info-row"><div class="info-l"><span class="info-ico" style="background:rgba(0,150,136,0.1)"><svg viewBox="0 0 24 24" fill="#009688"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4z"/></svg></span><span class="info-lbl">璁惧娓╁害</span></div><span class="info-val" id="v-temp">-- 掳C</span></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 右侧 -->
+  <!-- 鍙充晶 -->
   <div class="right-col">
     <div class="card">
       <div class="card-hd">
-        <span class="card-tt">信号强度</span>
+        <span class="card-tt">淇″彿寮哄害</span>
         <div class="signal-bars" id="sig-bars">
           <span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="bar b4"></span><span class="bar b5"></span>
         </div>
@@ -83,12 +83,12 @@
             </svg>
             <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
               <div class="gauge-num" id="gval">--</div>
-              <div class="gauge-lbl">质量</div>
+              <div class="gauge-lbl">璐ㄩ噺</div>
             </div>
           </div>
         </div>
 
-        <div class="prog-title">5G NR 指标</div>
+        <div class="prog-title">5G NR 鎸囨爣</div>
         <div style="margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
             <span style="font-size:13px;font-weight:bold;color:#555">RSRP</span>
@@ -111,15 +111,15 @@
           <div class="prog-bar"><div class="prog-fill" id="bar-rsrq" style="width:0%;background-color:#FF4D4F"></div></div>
         </div>
 
-        <div style="font-size:12px;font-weight:600;color:#999;margin-bottom:12px">频段配置</div>
+        <div style="font-size:12px;font-weight:600;color:#999;margin-bottom:12px">棰戞閰嶇疆</div>
         <div class="band-grid">
-          <div class="band-card"><div class="band-ico" style="background-color:#F0E6FF;color:#722ED1"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div><div style="display:flex;flex-direction:column"><span style="font-size:12px;color:#888;margin-bottom:4px">频段</span><span style="font-size:16px;font-weight:700;color:#333;line-height:1" id="v-band">--</span></div></div>
-          <div class="band-card"><div class="band-ico" style="background-color:#E6F7FF;color:#1890FF"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg></div><div style="display:flex;flex-direction:column"><span style="font-size:12px;color:#888;margin-bottom:4px">带宽</span><span style="font-size:16px;font-weight:700;color:#333;line-height:1" id="v-bw">-- MHz</span></div></div>
+          <div class="band-card"><div class="band-ico" style="background-color:#F0E6FF;color:#722ED1"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div><div style="display:flex;flex-direction:column"><span style="font-size:12px;color:#888;margin-bottom:4px">棰戞</span><span style="font-size:16px;font-weight:700;color:#333;line-height:1" id="v-band">--</span></div></div>
+          <div class="band-card"><div class="band-ico" style="background-color:#E6F7FF;color:#1890FF"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg></div><div style="display:flex;flex-direction:column"><span style="font-size:12px;color:#888;margin-bottom:4px">甯﹀</span><span style="font-size:16px;font-weight:700;color:#333;line-height:1" id="v-bw">-- MHz</span></div></div>
           <div class="band-card"><div class="band-ico" style="background-color:#FFF1F0;color:#FF4D4F"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div><div style="display:flex;flex-direction:column"><span style="font-size:12px;color:#888;margin-bottom:4px">ARFCN</span><span style="font-size:16px;font-weight:700;color:#333;line-height:1" id="v-arfcn">--</span></div></div>
           <div class="band-card"><div class="band-ico" style="background-color:#FFF7E6;color:#FA8C16"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2z"/></svg></div><div style="display:flex;flex-direction:column"><span style="font-size:12px;color:#888;margin-bottom:4px">PCI</span><span style="font-size:16px;font-weight:700;color:#333;line-height:1" id="v-pci">--</span></div></div>
         </div>
 
-        <div style="font-size:12px;font-weight:600;color:#999;margin-bottom:12px">天线分集</div>
+        <div style="font-size:12px;font-weight:600;color:#999;margin-bottom:12px">澶╃嚎鍒嗛泦</div>
         <div class="ant-grid">
           <div class="ant-card"><span style="font-size:12px;color:#999;margin-bottom:4px">MAIN</span><span style="font-size:16px;font-weight:700;color:#333" id="v-main">--</span></div>
           <div class="ant-card"><span style="font-size:12px;color:#999;margin-bottom:4px">DIV</span><span style="font-size:16px;font-weight:700;color:#333" id="v-div">--</span></div>
