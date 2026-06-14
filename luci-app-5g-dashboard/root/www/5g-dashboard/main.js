@@ -14,7 +14,7 @@ var cache = {
   cardSt: $('card-st')
 };
 
-// Safe value helpers
+// Safe helpers
 function safe(v, fb) {
   if (v === null || v === undefined || v === '' || v === 'undefined' || v === 'null') return fb !== undefined ? fb : '--';
   return v;
@@ -30,16 +30,14 @@ function splitSpeed(val) {
   return { int: parts[0], dec: '.' + parts[1] };
 }
 
-// Core update function
+// Core update
 function updateDashboard(data) {
   if (!data || typeof data !== 'object') return;
 
-  // Network status
   var connected = data.networkStatus === 'connected';
   cache.stDot.style.background = connected ? '#52C41A' : '#FF4D4F';
   cache.stTxt.textContent = connected ? '\u5DF2\u8FDE\u63A5\u4E92\u8054\u7F51' : '\u672A\u8FDE\u63A5/\u65E0\u670D\u52A1';
 
-  // Speed
   var dl = splitSpeed(data.downloadSpeed);
   var ul = splitSpeed(data.uploadSpeed);
   cache.dlI.textContent = dl.int;
@@ -47,12 +45,10 @@ function updateDashboard(data) {
   cache.ulI.textContent = ul.int;
   cache.ulD.textContent = ul.dec;
 
-  // Temperature
   var temp = safeNum(data.temperature, 0);
   cache.tmp.textContent = temp + ' \u00B0C';
   cache.tmp.style.color = temp > 65 ? '#FF4D4F' : temp > 50 ? '#FAAD14' : '';
 
-  // Network info
   cache.vOp.textContent = safe(data.operator);
   cache.vMode.textContent = safe(data.networkMode);
   cache.vDlbw.textContent = safe(data.downloadBandwidth, '--') + ' Mbps';
@@ -63,7 +59,6 @@ function updateDashboard(data) {
   cache.vIp6.textContent = safe(data.ipv6);
   cache.vIp6.title = safe(data.ipv6);
 
-  // RSRP
   var rsrp = safeNum(data.rsrp, -130);
   var rsrpPct = Math.max(0, Math.min(100, ((rsrp + 130) / 70) * 100));
   var rsrpColor = rsrp >= -90 ? '#52C41A' : rsrp >= -105 ? '#FAAD14' : '#FF4D4F';
@@ -71,7 +66,6 @@ function updateDashboard(data) {
   cache.barRsrp.style.width = rsrpPct + '%';
   cache.barRsrp.style.backgroundColor = rsrpColor;
 
-  // SINR
   var sinr = safeNum(data.sinr, -10);
   var sinrPct = Math.max(0, Math.min(100, ((sinr + 10) / 40) * 100));
   var sinrColor = sinr >= 13 ? '#52C41A' : sinr >= 0 ? '#FAAD14' : '#FF4D4F';
@@ -79,7 +73,6 @@ function updateDashboard(data) {
   cache.barSinr.style.width = sinrPct + '%';
   cache.barSinr.style.backgroundColor = sinrColor;
 
-  // RSRQ
   var rsrq = safeNum(data.rsrq, -25);
   var rsrqPct = Math.max(0, Math.min(100, ((rsrq + 25) / 15) * 100));
   var rsrqColor = rsrq >= -10 ? '#52C41A' : rsrq >= -15 ? '#FAAD14' : '#FF4D4F';
@@ -87,7 +80,6 @@ function updateDashboard(data) {
   cache.barRsrq.style.width = rsrqPct + '%';
   cache.barRsrq.style.backgroundColor = rsrqColor;
 
-  // Quality score (NaN safe)
   var rsrpScore = 0, sinrScore = 0, totalScore = 0;
   if (!isNaN(rsrp) && rsrp !== 0) rsrpScore = Math.max(0, Math.min(40, ((rsrp + 130) / 70) * 40));
   if (!isNaN(sinr) && sinr !== 0) sinrScore = Math.max(0, Math.min(60, ((sinr + 10) / 40) * 60));
@@ -102,7 +94,6 @@ function updateDashboard(data) {
   else if (totalScore >= 40) { cache.gpg.style.stroke = '#FA8C16'; cache.gval.style.color = '#262626'; }
   else { cache.gpg.style.stroke = '#FF4D4F'; cache.gval.style.color = '#FF4D4F'; }
 
-  // Signal bars
   var bars = cache.sigBars;
   var activeBars = 0;
   if (rsrp >= -80) activeBars = 5;
@@ -119,20 +110,17 @@ function updateDashboard(data) {
     }
   }
 
-  // Band info
   var bandVal = safe(data.band);
   cache.vBand.textContent = (bandVal !== '--' && bandVal !== '0') ? 'n' + bandVal : '--';
   cache.vBw.textContent = safe(data.bandwidth, '--') + ' MHz';
   cache.vArfcn.textContent = safe(data.arfcn);
   cache.vPci.textContent = safe(data.pci);
 
-  // Antenna
   cache.vMain.textContent = safe(data.antMain, '--') + (safe(data.antMain, '--') !== '--' ? ' dBm' : '');
   cache.vDiv.textContent = safe(data.antDiv, '--') + (safe(data.antDiv, '--') !== '--' ? ' dBm' : '');
   cache.vMimo1.textContent = safe(data.antMimo1, '--') + (safe(data.antMimo1, '--') !== '--' ? ' dBm' : '');
   cache.vMimo2.textContent = safe(data.antMimo2, '--') + (safe(data.antMimo2, '--') !== '--' ? ' dBm' : '');
 
-  // Wave animation
   var dlSpeed = safeNum(data.downloadSpeed, 0);
   var waveH, waveS;
   if (dlSpeed <= 0) { waveH = '-10%'; waveS = '10s'; }
@@ -144,31 +132,14 @@ function updateDashboard(data) {
   cache.cardSt.style.setProperty('--ws', waveS);
 }
 
-// Mock data for local testing
+// Mock data
 var MOCK_DATA = {
-  networkStatus: 'connected',
-  downloadSpeed: 156.78,
-  uploadSpeed: 42.35,
-  temperature: 43,
-  operator: 'CHINA UNICOM',
-  networkMode: 'NR5G-SA',
-  downloadBandwidth: 1000,
-  uploadBandwidth: 200,
-  qci: 6,
-  cellId: '820CB6188',
-  ipv4: '10.65.73.153',
-  ipv6: '2408:8956:1010:27c7:48dd:2b52:4821:b0f3',
-  rsrp: -107,
-  sinr: 1,
-  rsrq: -11,
-  band: 78,
-  bandwidth: 100,
-  arfcn: 633984,
-  pci: 720,
-  antMain: -116,
-  antDiv: -107,
-  antMimo1: -113,
-  antMimo2: -113
+  networkStatus: 'connected', downloadSpeed: 156.78, uploadSpeed: 42.35,
+  temperature: 43, operator: 'CHINA UNICOM', networkMode: 'NR5G-SA',
+  downloadBandwidth: 1000, uploadBandwidth: 200, qci: 6, cellId: '820CB6188',
+  ipv4: '10.65.73.153', ipv6: '2408:8956:1010:27c7:48dd:2b52:4821:b0f3',
+  rsrp: -107, sinr: 1, rsrq: -11, band: 78, bandwidth: 100,
+  arfcn: 633984, pci: 720, antMain: -116, antDiv: -107, antMimo1: -113, antMimo2: -113
 };
 
 // Clock
@@ -181,30 +152,38 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
-// Fetch real data
-var API_URL = '/cgi-bin/get_5g_info';
-var POLL_INTERVAL = 3000;
+// Simulate data fluctuation
+var state = { rsrp: -107, sinr: 1, rsrq: -11, dl: 156.78, ul: 42.35 };
 
-function fetchRouterData() {
-  fetch(API_URL, { method: 'GET', cache: 'no-store' })
-    .then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then(function(data) {
-      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-        updateDashboard(data);
-      } else {
-        updateDashboard(MOCK_DATA);
-      }
-    })
-    .catch(function(err) {
-      console.warn('[5G Dashboard] API failed, using mock:', err.message);
-      updateDashboard(MOCK_DATA);
-    });
+function genData() {
+  state.rsrp += (Math.random() - 0.5) * 8;
+  state.rsrp = Math.max(-125, Math.min(-65, state.rsrp));
+  state.sinr += (Math.random() - 0.5) * 4;
+  state.sinr = Math.max(-5, Math.min(25, state.sinr));
+  state.rsrq += (Math.random() - 0.5) * 3;
+  state.rsrq = Math.max(-20, Math.min(-5, state.rsrq));
+  state.dl += (Math.random() - 0.5) * 80;
+  state.dl = Math.max(0, Math.min(800, state.dl));
+  state.ul += (Math.random() - 0.5) * 20;
+  state.ul = Math.max(0, Math.min(100, state.ul));
+
+  return {
+    networkStatus: Math.random() > 0.05 ? 'connected' : 'disconnected',
+    downloadSpeed: state.dl, uploadSpeed: state.ul,
+    temperature: Math.floor(38 + Math.random() * 15),
+    operator: 'CHINA UNICOM', networkMode: 'NR5G-SA',
+    downloadBandwidth: 1000, uploadBandwidth: 200, qci: 6,
+    cellId: '820CB6188',
+    ipv4: '10.65.' + Math.floor(Math.random()*255) + '.' + Math.floor(Math.random()*255),
+    ipv6: '2408:8956:1010:27c7:48dd:2b52:4821:b0f3',
+    rsrp: Math.round(state.rsrp), sinr: Math.round(state.sinr), rsrq: Math.round(state.rsrq),
+    band: 78, bandwidth: 100, arfcn: 633984, pci: 720,
+    antMain: Math.round(-110 + Math.random() * 10),
+    antDiv: Math.round(-115 + Math.random() * 15),
+    antMimo1: Math.round(-112 + Math.random() * 10),
+    antMimo2: Math.round(-114 + Math.random() * 10)
+  };
 }
 
-// Init
-updateDashboard(MOCK_DATA);
-fetchRouterData();
-setInterval(fetchRouterData, POLL_INTERVAL);
+updateDashboard(genData());
+setInterval(function() { updateDashboard(genData()); }, 2000);
