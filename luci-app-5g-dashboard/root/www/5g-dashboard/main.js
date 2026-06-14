@@ -1,4 +1,4 @@
-// ===== DOM 缂撳瓨 =====
+// DOM cache
 var $ = function(id) { return document.getElementById(id); };
 var cache = {
   dlI: $('dl-i'), dlD: $('dl-d'), ulI: $('ul-i'), ulD: $('ul-d'),
@@ -14,38 +14,32 @@ var cache = {
   cardSt: $('card-st')
 };
 
-// ===== 宸ュ叿鍑芥暟 =====
-function safe(v, fallback) {
-  if (v === null || v === undefined || v === '' || v === 'undefined' || v === 'null') {
-    return fallback !== undefined ? fallback : '--';
-  }
+// Safe value helpers
+function safe(v, fb) {
+  if (v === null || v === undefined || v === '' || v === 'undefined' || v === 'null') return fb !== undefined ? fb : '--';
   return v;
 }
-
-function safeNum(v, fallback) {
-  if (v === null || v === undefined || v === '' || v === '--' || v === 'undefined') {
-    return fallback !== undefined ? fallback : 0;
-  }
+function safeNum(v, fb) {
+  if (v === null || v === undefined || v === '' || v === '--' || v === 'undefined') return fb !== undefined ? fb : 0;
   var n = parseFloat(v);
-  return isNaN(n) ? (fallback !== undefined ? fallback : 0) : n;
+  return isNaN(n) ? (fb !== undefined ? fb : 0) : n;
 }
-
 function splitSpeed(val) {
-  var num = safeNum(val, 0);
-  var s = num.toFixed(2);
-  var parts = s.split('.');
+  var num = safeNum(val, 0).toFixed(2);
+  var parts = num.split('.');
   return { int: parts[0], dec: '.' + parts[1] };
 }
 
-// ===== 鏍稿績鏇存柊鍑芥暟 =====
+// Core update function
 function updateDashboard(data) {
   if (!data || typeof data !== 'object') return;
 
-  // 缃戠粶鐘舵€?  var connected = data.networkStatus === 'connected';
+  // Network status
+  var connected = data.networkStatus === 'connected';
   cache.stDot.style.background = connected ? '#52C41A' : '#FF4D4F';
-  cache.stTxt.textContent = connected ? '宸茶繛鎺ヤ簰鑱旂綉' : '鏈繛鎺?鏃犳湇鍔?;
+  cache.stTxt.textContent = connected ? '\u5DF2\u8FDE\u63A5\u4E92\u8054\u7F51' : '\u672A\u8FDE\u63A5/\u65E0\u670D\u52A1';
 
-  // 閫熺巼
+  // Speed
   var dl = splitSpeed(data.downloadSpeed);
   var ul = splitSpeed(data.uploadSpeed);
   cache.dlI.textContent = dl.int;
@@ -53,12 +47,12 @@ function updateDashboard(data) {
   cache.ulI.textContent = ul.int;
   cache.ulD.textContent = ul.dec;
 
-  // 娓╁害
+  // Temperature
   var temp = safeNum(data.temperature, 0);
-  cache.tmp.textContent = temp + ' 掳C';
+  cache.tmp.textContent = temp + ' \u00B0C';
   cache.tmp.style.color = temp > 65 ? '#FF4D4F' : temp > 50 ? '#FAAD14' : '';
 
-  // 缃戠粶淇℃伅
+  // Network info
   cache.vOp.textContent = safe(data.operator);
   cache.vMode.textContent = safe(data.networkMode);
   cache.vDlbw.textContent = safe(data.downloadBandwidth, '--') + ' Mbps';
@@ -93,13 +87,10 @@ function updateDashboard(data) {
   cache.barRsrq.style.width = rsrqPct + '%';
   cache.barRsrq.style.backgroundColor = rsrqColor;
 
-  // 缁煎悎璐ㄩ噺璇勫垎锛圢aN淇濇姢锛?  var rsrpScore = 0, sinrScore = 0, totalScore = 0;
-  if (!isNaN(rsrp) && rsrp !== 0) {
-    rsrpScore = Math.max(0, Math.min(40, ((rsrp + 130) / 70) * 40));
-  }
-  if (!isNaN(sinr) && sinr !== 0) {
-    sinrScore = Math.max(0, Math.min(60, ((sinr + 10) / 40) * 60));
-  }
+  // Quality score (NaN safe)
+  var rsrpScore = 0, sinrScore = 0, totalScore = 0;
+  if (!isNaN(rsrp) && rsrp !== 0) rsrpScore = Math.max(0, Math.min(40, ((rsrp + 130) / 70) * 40));
+  if (!isNaN(sinr) && sinr !== 0) sinrScore = Math.max(0, Math.min(60, ((sinr + 10) / 40) * 60));
   totalScore = Math.floor(rsrpScore + sinrScore);
   if (isNaN(totalScore)) totalScore = 0;
 
@@ -111,7 +102,8 @@ function updateDashboard(data) {
   else if (totalScore >= 40) { cache.gpg.style.stroke = '#FA8C16'; cache.gval.style.color = '#262626'; }
   else { cache.gpg.style.stroke = '#FF4D4F'; cache.gval.style.color = '#FF4D4F'; }
 
-  // 淇″彿鏍?  var bars = cache.sigBars;
+  // Signal bars
+  var bars = cache.sigBars;
   var activeBars = 0;
   if (rsrp >= -80) activeBars = 5;
   else if (rsrp >= -90) activeBars = 4;
@@ -127,20 +119,20 @@ function updateDashboard(data) {
     }
   }
 
-  // 棰戞淇℃伅
+  // Band info
   var bandVal = safe(data.band);
   cache.vBand.textContent = (bandVal !== '--' && bandVal !== '0') ? 'n' + bandVal : '--';
   cache.vBw.textContent = safe(data.bandwidth, '--') + ' MHz';
   cache.vArfcn.textContent = safe(data.arfcn);
   cache.vPci.textContent = safe(data.pci);
 
-  // 澶╃嚎鍒嗛泦
+  // Antenna
   cache.vMain.textContent = safe(data.antMain, '--') + (safe(data.antMain, '--') !== '--' ? ' dBm' : '');
   cache.vDiv.textContent = safe(data.antDiv, '--') + (safe(data.antDiv, '--') !== '--' ? ' dBm' : '');
   cache.vMimo1.textContent = safe(data.antMimo1, '--') + (safe(data.antMimo1, '--') !== '--' ? ' dBm' : '');
   cache.vMimo2.textContent = safe(data.antMimo2, '--') + (safe(data.antMimo2, '--') !== '--' ? ' dBm' : '');
 
-  // 娼睈娉㈡氮
+  // Wave animation
   var dlSpeed = safeNum(data.downloadSpeed, 0);
   var waveH, waveS;
   if (dlSpeed <= 0) { waveH = '-10%'; waveS = '10s'; }
@@ -152,7 +144,7 @@ function updateDashboard(data) {
   cache.cardSt.style.setProperty('--ws', waveS);
 }
 
-// ===== Mock鏁版嵁锛堟湰鍦拌皟璇曠敤锛?=====
+// Mock data for local testing
 var MOCK_DATA = {
   networkStatus: 'connected',
   downloadSpeed: 156.78,
@@ -179,17 +171,17 @@ var MOCK_DATA = {
   antMimo2: -113
 };
 
-// ===== 鏃堕挓 =====
+// Clock
 function updateClock() {
   var n = new Date();
-  var w = ['鏃?,'涓€','浜?,'涓?,'鍥?,'浜?,'鍏?];
-  $('dt').textContent = n.getFullYear() + '骞? + (n.getMonth()+1) + '鏈? + n.getDate() + '鏃?鏄熸湡' + w[n.getDay()] + ' ' +
+  var w = ['\u65E5','\u4E00','\u4E8C','\u4E09','\u56DB','\u4E94','\u516D'];
+  $('dt').textContent = n.getFullYear() + '\u5E74' + (n.getMonth()+1) + '\u6708' + n.getDate() + '\u65E5 \u661F\u671F' + w[n.getDay()] + ' ' +
     String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
 }
 updateClock();
 setInterval(updateClock, 1000);
 
-// ===== 鐪熷疄鏁版嵁璇锋眰 =====
+// Fetch real data
 var API_URL = '/cgi-bin/get_5g_info';
 var POLL_INTERVAL = 3000;
 
@@ -207,14 +199,12 @@ function fetchRouterData() {
       }
     })
     .catch(function(err) {
-      console.warn('[5G Dashboard] API璇锋眰澶辫触锛屼娇鐢∕ock鏁版嵁:', err.message);
+      console.warn('[5G Dashboard] API failed, using mock:', err.message);
       updateDashboard(MOCK_DATA);
     });
 }
 
-// 棣栨鍔犺浇锛堝厛鏄剧ずMock锛岀瓑API鍝嶅簲鍚庤鐩栵級
+// Init
 updateDashboard(MOCK_DATA);
 fetchRouterData();
-
-// 杞
 setInterval(fetchRouterData, POLL_INTERVAL);
