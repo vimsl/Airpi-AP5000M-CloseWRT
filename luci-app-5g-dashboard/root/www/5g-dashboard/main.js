@@ -16,23 +16,30 @@ var cache = {
 
 // ===== 工具函数 =====
 function safe(v, fallback) {
-  return (v === null || v === undefined || v === '') ? (fallback || '--') : v;
+  if (v === null || v === undefined || v === '' || v === 'undefined' || v === 'null') {
+    return fallback !== undefined ? fallback : '--';
+  }
+  return v;
 }
 
 function safeNum(v, fallback) {
+  if (v === null || v === undefined || v === '' || v === '--' || v === 'undefined') {
+    return fallback !== undefined ? fallback : 0;
+  }
   var n = parseFloat(v);
-  return isNaN(n) ? (fallback || 0) : n;
+  return isNaN(n) ? (fallback !== undefined ? fallback : 0) : n;
 }
 
 function splitSpeed(val) {
-  var s = safeNum(val, 0).toFixed(2);
+  var num = safeNum(val, 0);
+  var s = num.toFixed(2);
   var parts = s.split('.');
   return { int: parts[0], dec: '.' + parts[1] };
 }
 
 // ===== 核心更新函数 =====
 function updateDashboard(data) {
-  if (!data) return;
+  if (!data || typeof data !== 'object') return;
 
   // 网络状态
   var connected = data.networkStatus === 'connected';
@@ -87,10 +94,17 @@ function updateDashboard(data) {
   cache.barRsrq.style.width = rsrqPct + '%';
   cache.barRsrq.style.backgroundColor = rsrqColor;
 
-  // 综合质量评分
-  var rsrpScore = Math.max(0, Math.min(40, ((rsrp + 130) / 70) * 40));
-  var sinrScore = Math.max(0, Math.min(60, ((sinr + 10) / 40) * 60));
-  var totalScore = Math.floor(rsrpScore + sinrScore);
+  // 综合质量评分（NaN保护）
+  var rsrpScore = 0, sinrScore = 0, totalScore = 0;
+  if (!isNaN(rsrp) && rsrp !== 0) {
+    rsrpScore = Math.max(0, Math.min(40, ((rsrp + 130) / 70) * 40));
+  }
+  if (!isNaN(sinr) && sinr !== 0) {
+    sinrScore = Math.max(0, Math.min(60, ((sinr + 10) / 40) * 60));
+  }
+  totalScore = Math.floor(rsrpScore + sinrScore);
+  if (isNaN(totalScore)) totalScore = 0;
+
   cache.gval.textContent = totalScore;
   var circumference = 339.292;
   var offset = circumference - (totalScore / 100) * circumference;
@@ -117,16 +131,17 @@ function updateDashboard(data) {
   }
 
   // 频段信息
-  cache.vBand.textContent = safe(data.band) !== '--' ? 'n' + data.band : '--';
+  var bandVal = safe(data.band);
+  cache.vBand.textContent = (bandVal !== '--' && bandVal !== '0') ? 'n' + bandVal : '--';
   cache.vBw.textContent = safe(data.bandwidth, '--') + ' MHz';
   cache.vArfcn.textContent = safe(data.arfcn);
   cache.vPci.textContent = safe(data.pci);
 
   // 天线分集
-  cache.vMain.textContent = safe(data.antMain) + (safe(data.antMain) !== '--' ? ' dBm' : '');
-  cache.vDiv.textContent = safe(data.antDiv) + (safe(data.antDiv) !== '--' ? ' dBm' : '');
-  cache.vMimo1.textContent = safe(data.antMimo1) + (safe(data.antMimo1) !== '--' ? ' dBm' : '');
-  cache.vMimo2.textContent = safe(data.antMimo2) + (safe(data.antMimo2) !== '--' ? ' dBm' : '');
+  cache.vMain.textContent = safe(data.antMain, '--') + (safe(data.antMain, '--') !== '--' ? ' dBm' : '');
+  cache.vDiv.textContent = safe(data.antDiv, '--') + (safe(data.antDiv, '--') !== '--' ? ' dBm' : '');
+  cache.vMimo1.textContent = safe(data.antMimo1, '--') + (safe(data.antMimo1, '--') !== '--' ? ' dBm' : '');
+  cache.vMimo2.textContent = safe(data.antMimo2, '--') + (safe(data.antMimo2, '--') !== '--' ? ' dBm' : '');
 
   // 潮汐波浪
   var dlSpeed = safeNum(data.downloadSpeed, 0);
@@ -139,6 +154,33 @@ function updateDashboard(data) {
   cache.cardSt.style.setProperty('--wh', waveH);
   cache.cardSt.style.setProperty('--ws', waveS);
 }
+
+// ===== Mock数据（本地调试用） =====
+var MOCK_DATA = {
+  networkStatus: 'connected',
+  downloadSpeed: 156.78,
+  uploadSpeed: 42.35,
+  temperature: 43,
+  operator: 'CHINA UNICOM',
+  networkMode: 'NR5G-SA',
+  downloadBandwidth: 1000,
+  uploadBandwidth: 200,
+  qci: 6,
+  cellId: '820CB6188',
+  ipv4: '10.65.73.153',
+  ipv6: '2408:8956:1010:27c7:48dd:2b52:4821:b0f3',
+  rsrp: -107,
+  sinr: 1,
+  rsrq: -11,
+  band: 78,
+  bandwidth: 100,
+  arfcn: 633984,
+  pci: 720,
+  antMain: -116,
+  antDiv: -107,
+  antMimo1: -113,
+  antMimo2: -113
+};
 
 // ===== 时钟 =====
 function updateClock() {
@@ -161,14 +203,20 @@ function fetchRouterData() {
       return res.json();
     })
     .then(function(data) {
-      updateDashboard(data);
+      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        updateDashboard(data);
+      } else {
+        updateDashboard(MOCK_DATA);
+      }
     })
     .catch(function(err) {
-      console.warn('[5G Dashboard] 数据请求失败:', err.message);
+      console.warn('[5G Dashboard] API请求失败，使用Mock数据:', err.message);
+      updateDashboard(MOCK_DATA);
     });
 }
 
-// 首次加载
+// 首次加载（先显示Mock，等API响应后覆盖）
+updateDashboard(MOCK_DATA);
 fetchRouterData();
 
 // 轮询
