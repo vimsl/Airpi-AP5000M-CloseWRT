@@ -1,0 +1,120 @@
+#!/bin/sh
+
+# 输出 HTTP 响应头
+echo "Content-Type: application/json"
+echo "Access-Control-Allow-Origin: *"
+echo ""
+
+# ================= 核心配置 =================
+IFACE="wwan0"          # 数据网卡接口
+# ============================================
+
+# 1. 真实速率计算 (读取 wwan0 统计节点，间隔 1 秒)
+RX1=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
+TX1=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
+sleep 1
+RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
+TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
+
+# 使用 awk 计算 Mbps (10^6)，保留两位小数
+DL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($RX2 - $RX1) * 8 / 1000000}")
+UL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($TX2 - $TX1) * 8 / 1000000}")
+
+# 2. 获取温度 (直接读取系统节点)
+TEMP=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
+if [ -n "$TEMP" ]; then
+    TEMP=$(awk "BEGIN {printf \"%.1f\", $TEMP/1000}")
+else
+    TEMP="--"
+fi
+
+# 3. 通过 ubus 获取 qmodem 5G 数据
+UBUS_RES=$(ubus call qmodem info 2>/dev/null)
+
+if [ -n "$UBUS_RES" ] && echo "$UBUS_RES" | grep -q "signal"; then
+    MODE=$(echo "$UBUS_RES" | jsonfilter -e '@.networkType' 2>/dev/null)
+    RSRP=$(echo "$UBUS_RES" | jsonfilter -e '@.signal.rsrp' 2>/dev/null)
+    RSRQ=$(echo "$UBUS_RES" | jsonfilter -e '@.signal.rsrq' 2>/dev/null)
+    SINR=$(echo "$UBUS_RES" | jsonfilter -e '@.signal.sinr' 2>/dev/null)
+    BAND=$(echo "$UBUS_RES" | jsonfilter -e '@.band' 2>/dev/null)
+    BW=$(echo "$UBUS_RES" | jsonfilter -e '@.bandwidth' 2>/dev/null)
+    ARFCN=$(echo "$UBUS_RES" | jsonfilter -e '@.arfcn' 2>/dev/null)
+    PCI=$(echo "$UBUS_RES" | jsonfilter -e '@.pci' 2>/dev/null)
+    CELLID=$(echo "$UBUS_RES" | jsonfilter -e '@.cellId' 2>/dev/null)
+    QCI=$(echo "$UBUS_RES" | jsonfilter -e '@.qci' 2>/dev/null)
+    OPERATOR=$(echo "$UBUS_RES" | jsonfilter -e '@.operator' 2>/dev/null)
+    IPV4=$(echo "$UBUS_RES" | jsonfilter -e '@.ipv4' 2>/dev/null)
+    IPV6=$(echo "$UBUS_RES" | jsonfilter -e '@.ipv6' 2>/dev/null)
+    DLBW=$(echo "$UBUS_RES" | jsonfilter -e '@.downloadBandwidth' 2>/dev/null)
+    ULBW=$(echo "$UBUS_RES" | jsonfilter -e '@.uploadBandwidth' 2>/dev/null)
+    ANT_MAIN=$(echo "$UBUS_RES" | jsonfilter -e '@.antenna.main' 2>/dev/null)
+    ANT_DIV=$(echo "$UBUS_RES" | jsonfilter -e '@.antenna.div' 2>/dev/null)
+    ANT_MIMO1=$(echo "$UBUS_RES" | jsonfilter -e '@.antenna.mimo1' 2>/dev/null)
+    ANT_MIMO2=$(echo "$UBUS_RES" | jsonfilter -e '@.antenna.mimo2' 2>/dev/null)
+else
+    if [ -f "/tmp/qmodem_status.json" ]; then
+        MODE=$(jsonfilter -i /tmp/qmodem_status.json -e '@.networkType' 2>/dev/null)
+        RSRP=$(jsonfilter -i /tmp/qmodem_status.json -e '@.signal.rsrp' 2>/dev/null)
+        RSRQ=$(jsonfilter -i /tmp/qmodem_status.json -e '@.signal.rsrq' 2>/dev/null)
+        SINR=$(jsonfilter -i /tmp/qmodem_status.json -e '@.signal.sinr' 2>/dev/null)
+        BAND=$(jsonfilter -i /tmp/qmodem_status.json -e '@.band' 2>/dev/null)
+        BW=$(jsonfilter -i /tmp/qmodem_status.json -e '@.bandwidth' 2>/dev/null)
+        ARFCN=$(jsonfilter -i /tmp/qmodem_status.json -e '@.arfcn' 2>/dev/null)
+        PCI=$(jsonfilter -i /tmp/qmodem_status.json -e '@.pci' 2>/dev/null)
+        CELLID=$(jsonfilter -i /tmp/qmodem_status.json -e '@.cellId' 2>/dev/null)
+        QCI=$(jsonfilter -i /tmp/qmodem_status.json -e '@.qci' 2>/dev/null)
+        OPERATOR=$(jsonfilter -i /tmp/qmodem_status.json -e '@.operator' 2>/dev/null)
+        IPV4=$(jsonfilter -i /tmp/qmodem_status.json -e '@.ipv4' 2>/dev/null)
+        IPV6=$(jsonfilter -i /tmp/qmodem_status.json -e '@.ipv6' 2>/dev/null)
+        DLBW=$(jsonfilter -i /tmp/qmodem_status.json -e '@.downloadBandwidth' 2>/dev/null)
+        ULBW=$(jsonfilter -i /tmp/qmodem_status.json -e '@.uploadBandwidth' 2>/dev/null)
+        ANT_MAIN=$(jsonfilter -i /tmp/qmodem_status.json -e '@.antenna.main' 2>/dev/null)
+        ANT_DIV=$(jsonfilter -i /tmp/qmodem_status.json -e '@.antenna.div' 2>/dev/null)
+        ANT_MIMO1=$(jsonfilter -i /tmp/qmodem_status.json -e '@.antenna.mimo1' 2>/dev/null)
+        ANT_MIMO2=$(jsonfilter -i /tmp/qmodem_status.json -e '@.antenna.mimo2' 2>/dev/null)
+    fi
+fi
+
+# 4. 获取网络状态
+NET_STATUS="disconnected"
+if [ -d "/sys/class/net/$IFACE" ]; then
+    CARRIER=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null || echo 0)
+    if [ "$CARRIER" = "1" ]; then
+        NET_STATUS="connected"
+    fi
+fi
+
+# 5. 补充获取 IP 地址 (如果 ubus 未返回)
+if [ -z "$IPV4" ] || [ "$IPV4" = "--" ]; then
+    IPV4=$(ifconfig "$IFACE" 2>/dev/null | grep -oP 'inet addr:\K[0-9.]+' || echo "--")
+fi
+
+# 6. 组装并输出 JSON
+cat <<EOF
+{
+  "networkStatus": "$NET_STATUS",
+  "mode": "${MODE:-"--"}",
+  "band": "${BAND:-"--"}",
+  "bandwidth": "${BW:-"--"}",
+  "rsrp": "${RSRP:-"--"}",
+  "rsrq": "${RSRQ:-"--"}",
+  "sinr": "${SINR:-"--"}",
+  "arfcn": "${ARFCN:-"--"}",
+  "pci": "${PCI:-"--"}",
+  "cellId": "${CELLID:-"--"}",
+  "qci": "${QCI:-"--"}",
+  "operator": "${OPERATOR:-"--"}",
+  "temperature": "${TEMP:-"--"}",
+  "downloadSpeed": "${DL_SPEED:-"0.00"}",
+  "uploadSpeed": "${UL_SPEED:-"0.00"}",
+  "downloadBandwidth": "${DLBW:-"--"}",
+  "uploadBandwidth": "${ULBW:-"--"}",
+  "networkMode": "${MODE:-"--"}",
+  "ipv4": "${IPV4:-"--"}",
+  "ipv6": "${IPV6:-"--"}",
+  "antMain": "${ANT_MAIN:-"--"}",
+  "antDiv": "${ANT_DIV:-"--"}",
+  "antMimo1": "${ANT_MIMO1:-"--"}",
+  "antMimo2": "${ANT_MIMO2:-"--"}"
+}
+EOF

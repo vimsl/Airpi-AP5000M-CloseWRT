@@ -10,9 +10,10 @@ CONFIG_PACKAGE_luci-app-ttyd=y
 CONFIG_PACKAGE_luci-app-filemanager=y
 CONFIG_PACKAGE_luci-app-dockerman=y
 CONFIG_PACKAGE_luci-app-store=y
-
-#CONFIG_CCACHE=y
-CONFIG_DEVEL=y
+#5G看板插件
+CONFIG_PACKAGE_luci-app-5g-dashboard=y
+#5G看板依赖
+CONFIG_PACKAGE_socat=y
 
 #禁用上游luci-app-modem，与qmodem包的hotplug脚本冲突
 CONFIG_PACKAGE_luci-app-modem=n

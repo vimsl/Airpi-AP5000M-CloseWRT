@@ -10,6 +10,10 @@ CONFIG_PACKAGE_luci-app-ttyd=y
 CONFIG_PACKAGE_luci-app-filemanager=y
 CONFIG_PACKAGE_luci-app-dockerman=y
 CONFIG_PACKAGE_luci-app-store=y
+#5G看板插件
+CONFIG_PACKAGE_luci-app-5g-dashboard=y
+#5G看板依赖
+CONFIG_PACKAGE_socat=y
 
 #CONFIG_CCACHE=y
 CONFIG_DEVEL=y

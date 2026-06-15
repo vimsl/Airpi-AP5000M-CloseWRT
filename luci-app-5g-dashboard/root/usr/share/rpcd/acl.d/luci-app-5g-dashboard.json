@@ -1,0 +1,13 @@
+{
+	"luci-app-5g-dashboard": {
+		"description": "Grant access to 5G Dashboard",
+		"read": {
+			"cgi-io": [ "exec" ],
+			"file": [ "/www/cgi-bin/get_5g_info" ],
+			"ubus": {
+				"qmodem": [ "*" ]
+			}
+		},
+		"write": {}
+	}
+}

@@ -36,3 +36,7 @@ echo "CONFIG_PACKAGE_luci-app-$WRT_THEME-config=y" >> ./.config
 if [ -n "$WRT_PACKAGE" ]; then
 	echo -e "$WRT_PACKAGE" >> ./.config
 fi
+
+#注入5G看板顶部标签到所有页面
+find ./feeds/luci/ -type f -name "*.htm" -exec sed -i 's|</head>|<script src="/5g-dashboard/tabs.js"></script>\n</head>|g' {} + 2>/dev/null || true
+echo "注入5G看板标签完成!"

@@ -1,0 +1,27 @@
+<%+header%>
+
+<div id="original-content">
+    <%- content() %>
+</div>
+
+<div id="modern-5g-dashboard" style="display:none;">
+    <iframe src="/5g-dashboard/tabs.html" style="width:100%;height:calc(100vh - 60px);border:none;"></iframe>
+</div>
+
+<script src="/5g-dashboard/tabs.js"></script>
+<script>
+if (typeof switchToIStore === 'undefined') {
+    window.switchToIStore = function() {
+        document.getElementById('modern-5g-dashboard').style.display = 'none';
+        document.getElementById('original-content').style.display = 'block';
+    };
+}
+if (typeof switchTo5G === 'undefined') {
+    window.switchTo5G = function() {
+        document.getElementById('modern-5g-dashboard').style.display = 'block';
+        document.getElementById('original-content').style.display = 'none';
+    };
+}
+</script>
+
+<%+footer%>

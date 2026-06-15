@@ -16,13 +16,18 @@ var cache = {
 
 // Safe helpers
 function safe(v, fb) {
-  if (v === null || v === undefined || v === '' || v === 'undefined' || v === 'null') return fb !== undefined ? fb : '--';
+  if (v === null || v === undefined || v === '' || v === 'undefined' || v === 'null' || v === 'NaN' || v === 'nan') return fb !== undefined ? fb : '--';
   return v;
 }
 function safeNum(v, fb) {
-  if (v === null || v === undefined || v === '' || v === '--' || v === 'undefined') return fb !== undefined ? fb : 0;
+  if (v === null || v === undefined || v === '' || v === '--' || v === 'undefined' || v === 'NaN' || v === 'nan') return fb !== undefined ? fb : 0;
   var n = parseFloat(v);
   return isNaN(n) ? (fb !== undefined ? fb : 0) : n;
+}
+function safeVal(val, suffix) {
+  var num = parseFloat(val);
+  if (isNaN(num) || val === null || val === undefined || val === '') return '--' + (suffix || '');
+  return num + (suffix || '');
 }
 function splitSpeed(val) {
   var num = safeNum(val, 0).toFixed(2);
@@ -90,9 +95,17 @@ function updateDashboard(data) {
   var circumference = 339.292;
   var offset = circumference - (totalScore / 100) * circumference;
   cache.gpg.style.strokeDashoffset = offset;
-  if (totalScore >= 70) { cache.gpg.style.stroke = '#52C41A'; cache.gval.style.color = '#262626'; }
-  else if (totalScore >= 40) { cache.gpg.style.stroke = '#FA8C16'; cache.gval.style.color = '#262626'; }
-  else { cache.gpg.style.stroke = '#FF4D4F'; cache.gval.style.color = '#FF4D4F'; }
+  // 强制使用JS控制颜色，覆盖CSS默认值
+  if (totalScore >= 70) { 
+    cache.gpg.style.stroke = '#52C41A'; 
+    cache.gval.style.color = '#262626'; 
+  } else if (totalScore >= 40) { 
+    cache.gpg.style.stroke = '#FA8C16'; 
+    cache.gval.style.color = '#262626'; 
+  } else { 
+    cache.gpg.style.stroke = '#FF4D4F'; 
+    cache.gval.style.color = '#FF4D4F'; 
+  }
 
   var bars = cache.sigBars;
   var activeBars = 0;
@@ -132,7 +145,34 @@ function updateDashboard(data) {
   cache.cardSt.style.setProperty('--ws', waveS);
 }
 
-// Mock data
+// 从CGI获取真实数据
+function fetchRouterData() {
+  fetch('/cgi-bin/get_5g_info')
+    .then(function(response) { return response.json(); })
+    .then(function(data) { updateDashboard(data); })
+    .catch(function(error) {
+      console.error('获取5G数据失败:', error);
+      // 使用备用数据
+      updateDashboard({
+        networkStatus: 'disconnected',
+        downloadSpeed: 0,
+        uploadSpeed: 0,
+        temperature: 0,
+        operator: '--',
+        networkMode: '--',
+        downloadBandwidth: 0,
+        uploadBandwidth: 0,
+        band: '--',
+        rsrp: '--',
+        sinr: '--',
+        rsrq: '--',
+        ipv4: '--',
+        ipv6: '--'
+      });
+    });
+}
+
+// Mock data (备用)
 var MOCK_DATA = {
   networkStatus: 'connected', downloadSpeed: 156.78, uploadSpeed: 42.35,
   temperature: 43, operator: 'CHINA UNICOM', networkMode: 'NR5G-SA',
@@ -185,5 +225,5 @@ function genData() {
   };
 }
 
-updateDashboard(genData());
-setInterval(function() { updateDashboard(genData()); }, 2000);
+updateDashboard(MOCK_DATA());
+setInterval(function() { fetchRouterData(); }, 3000);
