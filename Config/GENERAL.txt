@@ -33,7 +33,7 @@ CONFIG_TARGET_PROFILE="DEVICE_hiveton-h5000m"
 CONFIG_TARGET_ARCH_PACKAGES="aarch64_cortex-a53"
 CONFIG_DEFAULT_TARGET_OPTIMIZATION="-Os -pipe -mcpu=cortex-a53"
 CONFIG_CPU_TYPE="cortex-a53"
-CONFIG_LINUX_5_15=y
+CONFIG_LINUX_6_6=y
 #内核启动参数 - 禁用PCIe ASPM防止WiFi芯片通信中断
 CONFIG_KERNEL_CMDLINE="console=ttyS0,115200n1 pcie_aspm=off pci=pcie_bus_perf"
 CONFIG_DEFAULT_base-files=y
