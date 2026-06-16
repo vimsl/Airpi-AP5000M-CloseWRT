@@ -86,14 +86,13 @@ fi
 
 # 5. 补充获取 IP 地址 (如果 ubus 未返回)
 if [ -z "$IPV4" ] || [ "$IPV4" = "--" ]; then
-    IPV4=$(ifconfig "$IFACE" 2>/dev/null | grep -oP 'inet addr:\K[0-9.]+' || echo "--")
+    IPV4=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet addr:[0-9.]+' | cut -d: -f2 || echo "--")
 fi
 
 # 6. 组装并输出 JSON
 cat <<EOF
 {
   "networkStatus": "$NET_STATUS",
-  "mode": "${MODE:-"--"}",
   "band": "${BAND:-"--"}",
   "bandwidth": "${BW:-"--"}",
   "rsrp": "${RSRP:-"--"}",
