@@ -31,7 +31,7 @@ fi
 # 3. 通过 ubus 获取 qmodem 5G 数据
 UBUS_RES=$(ubus call qmodem info 2>/dev/null)
 
-if [ -n "$UBUS_RES" ] && echo "$UBUS_RES" | grep -q "signal"; then
+if [ -n "$UBUS_RES" ]; then
     MODE=$(echo "$UBUS_RES" | jsonfilter -e '@.networkType' 2>/dev/null)
     RSRP=$(echo "$UBUS_RES" | jsonfilter -e '@.signal.rsrp' 2>/dev/null)
     RSRQ=$(echo "$UBUS_RES" | jsonfilter -e '@.signal.rsrq' 2>/dev/null)
