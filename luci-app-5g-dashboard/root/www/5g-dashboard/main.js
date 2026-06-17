@@ -186,7 +186,8 @@ var MOCK_DATA = {
 function updateClock() {
   var n = new Date();
   var w = ['\u65E5','\u4E00','\u4E8C','\u4E09','\u56DB','\u4E94','\u516D'];
-  $('dt').textContent = n.getFullYear() + '\u5E74' + (n.getMonth()+1) + '\u6708' + n.getDate() + '\u65E5 \u661F\u671F' + w[n.getDay()] + ' ' +
+  var el = $('current-time');
+  if (el) el.textContent = n.getFullYear() + '\u5E74' + (n.getMonth()+1) + '\u6708' + n.getDate() + '\u65E5 \u661F\u671F' + w[n.getDay()] + ' ' +
     String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
 }
 updateClock();

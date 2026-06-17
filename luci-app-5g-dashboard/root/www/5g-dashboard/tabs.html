@@ -748,38 +748,6 @@
     </div>
 </div>
 
-<script>
-// 更新时间
-function updateTime() {
-    var now = new Date();
-    var w = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
-    var timeStr = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日 ' + w[now.getDay()] + ' ' +
-        String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-    document.getElementById('current-time').textContent = timeStr;
-}
-updateTime();
-setInterval(updateTime, 1000);
-</script>
-
 <script src="/5g-dashboard/main.js"></script>
-<script>
-// 适配 tabs.html 中的元素 ID
-var origCache = null;
-if (typeof cache !== 'undefined' && cache.dt) {
-    cache.dt = document.getElementById('current-time');
-    // 覆盖时钟更新逻辑
-    function updateClock() {
-        var n = new Date();
-        var w = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
-        var el = document.getElementById('current-time');
-        if (el) el.textContent = n.getFullYear() + '年' + (n.getMonth()+1) + '月' + n.getDate() + '日 ' + w[n.getDay()] + ' ' +
-            String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
-    // 首次加载真实数据
-    if (typeof fetchRouterData === 'function') fetchRouterData();
-}
-</script>
 </body>
 </html>
