@@ -21,6 +21,9 @@ define Package/luci-app-5g-dashboard/description
   A modern 5G cellular network dashboard for OpenWrt.
 endef
 
+define Build/Compile
+endef
+
 define Package/luci-app-5g-dashboard/install
 	$(INSTALL_DIR) $(1)/www/5g-dashboard
 	$(INSTALL_DATA) ./root/www/5g-dashboard/style.css $(1)/www/5g-dashboard/
