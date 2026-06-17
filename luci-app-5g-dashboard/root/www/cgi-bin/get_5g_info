@@ -1,108 +1,99 @@
 #!/bin/sh
 
-# 输出 HTTP 响应头
 echo "Content-Type: application/json"
 echo "Access-Control-Allow-Origin: *"
 echo ""
 
-# ================= 核心配置 =================
 IFACE="wwan0"
-# ============================================
 
-# 1. 真实速率计算 (读取 wwan0 统计节点，间隔 1 秒)
+# 1. 速率
 RX1=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
 TX1=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
 sleep 1
 RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
 TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
-
 DL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($RX2 - $RX1) * 8 / 1000000}")
 UL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($TX2 - $TX1) * 8 / 1000000}")
 
-# 2. 获取温度
-TEMP=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
-if [ -n "$TEMP" ]; then
-    TEMP=$(awk "BEGIN {printf \"%.1f\", $TEMP/1000}")
-else
-    TEMP="--"
-fi
+# 2. 系统温度
+SYS_TEMP=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
+[ -n "$SYS_TEMP" ] && SYS_TEMP=$(awk "BEGIN {printf \"%.1f\", $SYS_TEMP/1000}") || SYS_TEMP="--"
 
-# 3. 通过 ubus 获取 qmodem 数据
-# 先找到 config_section 名称
+# 3. 自动发现 config_section (BusyBox兼容: 用sed替代grep -oP)
 CONFIG_SECTION=""
-for section in $(uci show qmodem 2>/dev/null | grep -oP 'qmodem\.\K[^=]+' | sort -u); do
+for section in $(uci show qmodem 2>/dev/null | sed -n 's/qmodem\.\([^.]*\)\..*/\1/p' | sort -u); do
     if uci get qmodem.$section.at_port >/dev/null 2>&1; then
         CONFIG_SECTION="$section"
         break
     fi
 done
 
-MODE="--"; OPERATOR="--"; BAND="--"; BW="--"; ARFCN="--"; PCI="--"
-CELLID="--"; QCI="--"; RSRP="--"; RSRQ="--"; SINR="--"
-IPV4="--"; IPV6="--"; DLBW="--"; ULBW="--"
+# 默认值
+NET_STATUS="disconnected"; NET_MODE="--"; OPERATOR="--"; MCC="--"; MNC="--"
+CELLID="--"; PCI="--"; ARFCN="--"; BAND="--"; ULBW="--"; DLBW="--"; BW="--"
+RSRP="--"; RSRQ="--"; SINR="--"; QCI="--"; IMEI="--"
+IPV4="--"; IPV6="--"; MODEM_TEMP="$SYS_TEMP"; CONNECT_STATUS="No"
 ANT_MAIN="--"; ANT_DIV="--"; ANT_MIMO1="--"; ANT_MIMO2="--"
 
+# 4. 通过 ubus 获取 qmodem 数据 (index方式)
+get_val() { echo "$1" | jsonfilter -e "@.modem_info[$2].value" 2>/dev/null; }
+
 if [ -n "$CONFIG_SECTION" ]; then
-    # 调用 base_info 获取设备信息
-    BASE_RES=$(ubus call qmodem base_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
-    if [ -n "$BASE_RES" ]; then
-        OPERATOR=$(echo "$BASE_RES" | jsonfilter -e '@.modem_info[0].operator' 2>/dev/null)
-        MODE=$(echo "$BASE_RES" | jsonfilter -e '@.modem_info[0].networkType' 2>/dev/null)
-        [ -z "$MODE" ] && MODE=$(echo "$BASE_RES" | jsonfilter -e '@.modem_info[0].rat' 2>/dev/null)
+    # base_info: [0]=model [1]=manufacturer [2]=revision [3]=at_port [4]=temperature [5]=voltage [6]=connected
+    BASE_RAW=$(ubus call qmodem base_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
+    if [ -n "$BASE_RAW" ]; then
+        MODEM_TEMP=$(get_val "$BASE_RAW" 4)
+        CONNECT_STATUS=$(get_val "$BASE_RAW" 6)
     fi
 
-    # 调用 cell_info 获取信号信息
-    CELL_RES=$(ubus call qmodem cell_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
-    if [ -n "$CELL_RES" ]; then
-        RSRP=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].rsrp' 2>/dev/null)
-        RSRQ=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].rsrq' 2>/dev/null)
-        SINR=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].sinr' 2>/dev/null)
-        BAND=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].band' 2>/dev/null)
-        BW=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].bandwidth' 2>/dev/null)
-        ARFCN=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].arfcn' 2>/dev/null)
-        PCI=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].pci' 2>/dev/null)
-        CELLID=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].cellId' 2>/dev/null)
-        DLBW=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].dlBandwidth' 2>/dev/null)
-        ULBW=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].ulBandwidth' 2>/dev/null)
-        ANT_MAIN=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].rx_ant' 2>/dev/null)
-        ANT_DIV=$(echo "$CELL_RES" | jsonfilter -e '@.modem_info[0].rx_ant_div' 2>/dev/null)
+    # cell_info: [0]=rat [1]=mcc [2]=mnc [3]=duplex [4]=cellid [5]=pci [6]=arfcn [7]=band [8]=ulbw [9]=dlbw [10]=rsrp [11]=rsrq [12]=sinr
+    CELL_RAW=$(ubus call qmodem cell_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
+    if [ -n "$CELL_RAW" ]; then
+        NET_MODE=$(get_val "$CELL_RAW" 0)
+        MCC=$(get_val "$CELL_RAW" 1)
+        MNC=$(get_val "$CELL_RAW" 2)
+        CELLID=$(get_val "$CELL_RAW" 4)
+        PCI=$(get_val "$CELL_RAW" 5)
+        ARFCN=$(get_val "$CELL_RAW" 6)
+        BAND=$(get_val "$CELL_RAW" 7)
+        ULBW=$(get_val "$CELL_RAW" 8)
+        DLBW=$(get_val "$CELL_RAW" 9)
+        RSRP=$(get_val "$CELL_RAW" 10)
+        RSRQ=$(get_val "$CELL_RAW" 11)
+        SINR=$(get_val "$CELL_RAW" 12)
+        BW="$DLBW"
     fi
 
-    # 调用 info 获取补充信息
-    INFO_RES=$(ubus call qmodem info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
-    if [ -n "$INFO_RES" ]; then
-        [ -z "$IPV4" ] || [ "$IPV4" = "--" ] && IPV4=$(echo "$INFO_RES" | jsonfilter -e '@.modem_info[0].ipv4' 2>/dev/null)
-        [ -z "$IPV6" ] || [ "$IPV6" = "--" ] && IPV6=$(echo "$INFO_RES" | jsonfilter -e '@.modem_info[0].ipv6' 2>/dev/null)
-        [ -z "$OPERATOR" ] || [ "$OPERATOR" = "--" ] && OPERATOR=$(echo "$INFO_RES" | jsonfilter -e '@.modem_info[0].operator' 2>/dev/null)
-        [ -z "$MODE" ] || [ "$MODE" = "--" ] && MODE=$(echo "$INFO_RES" | jsonfilter -e '@.modem_info[0].networkType' 2>/dev/null)
+    # sim_info: [0]=sim_status [1]=operator [2]=imsi [3]=imei
+    SIM_RAW=$(ubus call qmodem sim_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
+    if [ -n "$SIM_RAW" ]; then
+        OPERATOR=$(get_val "$SIM_RAW" 1)
+        IMEI=$(get_val "$SIM_RAW" 3)
     fi
 fi
 
-# 4. 获取网络状态
-NET_STATUS="disconnected"
+# 5. 网络状态
 if [ -d "/sys/class/net/$IFACE" ]; then
     CARRIER=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null || echo 0)
-    if [ "$CARRIER" = "1" ]; then
-        NET_STATUS="connected"
-    fi
+    [ "$CARRIER" = "1" ] && NET_STATUS="connected"
 fi
 
-# 5. 补充获取 IP 地址
-if [ -z "$IPV4" ] || [ "$IPV4" = "--" ]; then
-    IPV4=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet addr:[0-9.]+' | cut -d: -f2 || echo "--")
-fi
+# 6. IP 地址
+IPV4=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet addr:[0-9.]+' | cut -d: -f2)
+IPV6=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet6 addr: [^ ]+' | head -1 | cut -d' ' -f3)
+[ -z "$IPV4" ] && IPV4="--"
+[ -z "$IPV6" ] && IPV6="--"
 
-# 6. 补充获取 IPv6
-if [ -z "$IPV6" ] || [ "$IPV6" = "--" ]; then
-    IPV6=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet6 addr: [0-9a-f:]+' | awk '{print $3}' || echo "--")
-fi
-
-# 7. 组装并输出 JSON
+# 7. 输出 JSON
 cat <<EOF
 {
   "networkStatus": "$NET_STATUS",
+  "networkMode": "${NET_MODE:-"--"}",
+  "operator": "${OPERATOR:-"--"}",
   "band": "${BAND:-"--"}",
   "bandwidth": "${BW:-"--"}",
+  "downloadBandwidth": "${DLBW:-"--"}",
+  "uploadBandwidth": "${ULBW:-"--"}",
   "rsrp": "${RSRP:-"--"}",
   "rsrq": "${RSRQ:-"--"}",
   "sinr": "${SINR:-"--"}",
@@ -110,13 +101,9 @@ cat <<EOF
   "pci": "${PCI:-"--"}",
   "cellId": "${CELLID:-"--"}",
   "qci": "${QCI:-"--"}",
-  "operator": "${OPERATOR:-"--"}",
-  "temperature": "${TEMP:-"--"}",
-  "downloadSpeed": "${DL_SPEED:-"0.00"}",
-  "uploadSpeed": "${UL_SPEED:-"0.00"}",
-  "downloadBandwidth": "${DLBW:-"--"}",
-  "uploadBandwidth": "${ULBW:-"--"}",
-  "networkMode": "${MODE:-"--"}",
+  "temperature": "${MODEM_TEMP:-${SYS_TEMP}}",
+  "downloadSpeed": "${DL_SPEED:-0.00}",
+  "uploadSpeed": "${UL_SPEED:-0.00}",
   "ipv4": "${IPV4:-"--"}",
   "ipv6": "${IPV6:-"--"}",
   "antMain": "${ANT_MAIN:-"--"}",
