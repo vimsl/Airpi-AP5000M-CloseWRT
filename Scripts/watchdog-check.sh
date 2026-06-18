@@ -51,8 +51,19 @@ if command -v /etc/init.d/qmodem_init >/dev/null 2>&1; then
     log_msg "qmodem_init restarted"
 fi
 
+# CGI 自检：如果数据僵死则重启 qmodem
+check_cgi_alive() {
+    local resp=$(curl -s --max-time 3 http://127.0.0.1/cgi-bin/get_5g_info 2>/dev/null)
+    echo "$resp" | grep -q "connected" || echo "$resp" | grep -q "disconnected"
+}
+
 while true; do
     if check_system_health; then
+        # 系统健康但检查 CGI 数据是否僵死
+        if ! check_cgi_alive; then
+            log_msg "CGI data stale, restarting qmodem_init..."
+            /etc/init.d/qmodem_init restart >/dev/null 2>&1
+        fi
         if [ "$FAIL_COUNT" -gt 0 ]; then
             log_msg "System recovered after $FAIL_COUNT failed checks"
             FAIL_COUNT=0
