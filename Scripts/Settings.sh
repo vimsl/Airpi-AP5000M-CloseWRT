@@ -37,6 +37,9 @@ if [ -n "$WRT_PACKAGE" ]; then
 	echo -e "$WRT_PACKAGE" >> ./.config
 fi
 
-#注入5G看板顶部标签到所有页面
-find ./feeds/luci/ -type f -name "*.htm" -exec sed -i 's|</head>|<script src="/5g-dashboard/tabs.js"></script>\n</head>|g' {} + 2>/dev/null || true
-echo "注入5G看板标签完成!"
+#安装系统假死检测守护脚本
+cp -f $GITHUB_WORKSPACE/Scripts/watchdog-check.sh ./package/base-files/files/usr/bin/watchdog-check.sh
+cp -f $GITHUB_WORKSPACE/Scripts/watchdog-init.sh ./package/base-files/files/etc/init.d/watchdog
+chmod 0755 ./package/base-files/files/usr/bin/watchdog-check.sh
+chmod 0755 ./package/base-files/files/etc/init.d/watchdog
+echo "系统假死检测守护脚本安装完成!"
