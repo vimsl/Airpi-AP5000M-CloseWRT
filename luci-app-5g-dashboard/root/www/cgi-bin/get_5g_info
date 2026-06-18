@@ -33,6 +33,7 @@ NET_STATUS="disconnected"; NET_MODE="--"; OPERATOR="--"; MCC="--"; MNC="--"
 CELLID="--"; PCI="--"; ARFCN="--"; BAND="--"; ULBW="--"; DLBW="--"; BW="--"
 RSRP="--"; RSRQ="--"; SINR="--"; QCI="--"; IMEI="--"
 IPV4="--"; IPV6="--"; MODEM_TEMP="$SYS_TEMP"; CONNECT_STATUS="No"
+ANT_MAIN="--"; ANT_DIV="--"
 
 # 4. 通过 ubus 获取 qmodem 数据
 get_val() { echo "$1" | jsonfilter -e "@.modem_info[$2].value" 2>/dev/null; }
@@ -68,57 +69,41 @@ if [ -n "$CONFIG_SECTION" ]; then
     fi
 fi
 
-# 5. 通过 uqmi 补充 QCI 和签约速率
-QMI_DEV=""; SUB_DL="--"; SUB_UL="--"
+# 5. 通过 uqmi (qmi-proxy) 补充天线分级和 QCI
+QMI_DEV=""
 for dev in /dev/cdc-wdm*; do
     [ -e "$dev" ] && QMI_DEV="$dev" && break
 done
 
 if [ -n "$QMI_DEV" ] && command -v uqmi >/dev/null 2>&1; then
-    # 获取 serving system 中的 QCI
-    QCI_RAW=$(uqmi -d "$QMI_DEV" --get-serving-system 2>/dev/null)
-    if [ -n "$QCI_RAW" ]; then
-        QCI_VAL=$(echo "$QCI_RAW" | jsonfilter -e '@.qci' 2>/dev/null)
+    # 天线分级: 每根天线的 RSRP
+    SIGNAL_RAW=$(uqmi -d "$QMI_DEV" --get-signal-info 2>/dev/null)
+    if [ -n "$SIGNAL_RAW" ]; then
+        ANT_MAIN=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.signal_info[0].rsrp' 2>/dev/null)
+        ANT_DIV=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.signal_info[1].rsrp' 2>/dev/null)
+    fi
+
+    # QCI: serving system
+    SERVING_RAW=$(uqmi -d "$QMI_DEV" --get-serving-system 2>/dev/null)
+    if [ -n "$SERVING_RAW" ]; then
+        QCI_VAL=$(echo "$SERVING_RAW" | jsonfilter -e '@.qci' 2>/dev/null)
         [ -n "$QCI_VAL" ] && QCI="$QCI_VAL"
     fi
-    # 获取签约速率 (max allowed bitrate from QMI)
-    PROFILE_RAW=$(uqmi -d "$QMI_DEV" --get-profile-settings 3 1 2>/dev/null)
-    if [ -n "$PROFILE_RAW" ]; then
-        SUB_DL=$(echo "$PROFILE_RAW" | jsonfilter -e '@.max_allowed_downlink' 2>/dev/null)
-        SUB_UL=$(echo "$PROFILE_RAW" | jsonfilter -e '@.max_allowed_uplink' 2>/dev/null)
-        [ -z "$SUB_DL" ] && SUB_DL="--"
-        [ -z "$SUB_UL" ] && SUB_UL="--"
-    fi
 fi
 
-# 6. 通过 AT 命令补充 QCI (备用方案)
-if [ "$QCI" = "--" ] && [ -n "$CONFIG_SECTION" ]; then
-    AT_PORT=$(uci get qmodem.$CONFIG_SECTION.at_port 2>/dev/null)
-    OVERRIDE_AT=$(uci get qmodem.$CONFIG_SECTION.override_at_port 2>/dev/null)
-    [ -n "$OVERRIDE_AT" ] && AT_PORT="$OVERRIDE_AT"
-    if [ -n "$AT_PORT" ] && [ -e "$AT_PORT" ]; then
-        # AT+QNWINFO 可能包含 QCI 信息
-        AT_RESP=$(echo -e "AT+QNWINFO\r" | timeout 2 cat "$AT_PORT" 2>/dev/null)
-        if echo "$AT_RESP" | grep -q "QCI"; then
-            QCI_VAL=$(echo "$AT_RESP" | grep -oP 'QCI[=:]\s*\K[0-9]+' 2>/dev/null)
-            [ -n "$QCI_VAL" ] && QCI="$QCI_VAL"
-        fi
-    fi
-fi
-
-# 7. 网络状态
+# 6. 网络状态
 if [ -d "/sys/class/net/$IFACE" ]; then
     CARRIER=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null || echo 0)
     [ "$CARRIER" = "1" ] && NET_STATUS="connected"
 fi
 
-# 8. IP 地址
+# 7. IP 地址
 IPV4=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet addr:[0-9.]+' | cut -d: -f2)
 IPV6=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet6 addr: [^ ]+' | head -1 | cut -d' ' -f3)
 [ -z "$IPV4" ] && IPV4="--"
 [ -z "$IPV6" ] && IPV6="--"
 
-# 9. 输出 JSON
+# 8. 输出 JSON
 cat <<EOF
 {
   "networkStatus": "$NET_STATUS",
@@ -128,8 +113,6 @@ cat <<EOF
   "bandwidth": "${BW:-"--"}",
   "downloadBandwidth": "${DLBW:-"--"}",
   "uploadBandwidth": "${ULBW:-"--"}",
-  "subscribedDown": "${SUB_DL:-"--"}",
-  "subscribedUp": "${SUB_UL:-"--"}",
   "rsrp": "${RSRP:-"--"}",
   "rsrq": "${RSRQ:-"--"}",
   "sinr": "${SINR:-"--"}",
@@ -142,6 +125,8 @@ cat <<EOF
   "downloadSpeed": "${DL_SPEED:-"0.00"}",
   "uploadSpeed": "${UL_SPEED:-"0.00"}",
   "ipv4": "${IPV4:-"--"}",
-  "ipv6": "${IPV6:-"--"}"
+  "ipv6": "${IPV6:-"--"}",
+  "antMain": "${ANT_MAIN:-"--"}",
+  "antDiv": "${ANT_DIV:-"--"}"
 }
 EOF
