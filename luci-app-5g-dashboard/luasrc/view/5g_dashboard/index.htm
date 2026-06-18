@@ -185,8 +185,8 @@ function updateDashboard(data) {
 
   cache.vOp.textContent = safe(data.operator);
   cache.vMode.textContent = safe(data.networkMode);
-  cache.vDlbw.textContent = safe(data.downloadBandwidth, '--') + ' Mbps';
-  cache.vUlbw.textContent = safe(data.uploadBandwidth, '--') + ' Mbps';
+  cache.vDlbw.textContent = safe(data.subscribedDown, safe(data.downloadBandwidth, '--')) + ' Mbps';
+  cache.vUlbw.textContent = safe(data.subscribedUp, safe(data.uploadBandwidth, '--')) + ' Mbps';
   cache.vQci.textContent = safe(data.qci);
   cache.vCell.textContent = safe(data.cellId);
   cache.vIp4.textContent = safe(data.ipv4);
