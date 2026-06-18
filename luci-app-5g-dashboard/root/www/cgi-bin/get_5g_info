@@ -54,8 +54,8 @@ if [ -n "$CONFIG_SECTION" ]; then
         PCI=$(get_val "$CELL_RAW" 5)
         ARFCN=$(get_val "$CELL_RAW" 6)
         BAND=$(get_val "$CELL_RAW" 7)
-        ULBW=$(get_val "$CELL_RAW" 8 | sed 's/[^0-9]//g')
-        DLBW=$(get_val "$CELL_RAW" 9 | sed 's/[^0-9]//g')
+        ULBW=$(get_val "$CELL_RAW" 8 | sed 's/[^0-9.]//g')
+        DLBW=$(get_val "$CELL_RAW" 9 | sed 's/[^0-9.]//g')
         RSRP=$(get_val "$CELL_RAW" 10)
         RSRQ=$(get_val "$CELL_RAW" 11)
         SINR=$(get_val "$CELL_RAW" 12)
@@ -76,11 +76,12 @@ for dev in /dev/cdc-wdm*; do
 done
 
 if [ -n "$QMI_DEV" ] && command -v uqmi >/dev/null 2>&1; then
-    # 天线分级: 每根天线的 RSRP
+    # 天线分级: 每根天线的 RSRP (uqmi返回扁平对象)
     SIGNAL_RAW=$(uqmi -d "$QMI_DEV" --get-signal-info 2>/dev/null)
     if [ -n "$SIGNAL_RAW" ]; then
-        ANT_MAIN=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.signal_info[0].rsrp' 2>/dev/null)
-        ANT_DIV=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.signal_info[1].rsrp' 2>/dev/null)
+        ANT_MAIN=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.rsrp' 2>/dev/null)
+        # 如果有第二根天线，尝试获取
+        ANT_DIV=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.rsrp2' 2>/dev/null)
     fi
 
     # QCI: serving system

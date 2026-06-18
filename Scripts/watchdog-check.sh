@@ -45,6 +45,12 @@ check_system_health() {
 
 log_msg "Watchdog daemon started (interval=${CHECK_INTERVAL}s, max_fail=${MAX_FAIL})"
 
+# 启动时重启 qmodem 确保数据采集正常
+if command -v /etc/init.d/qmodem_init >/dev/null 2>&1; then
+    /etc/init.d/qmodem_init restart >/dev/null 2>&1
+    log_msg "qmodem_init restarted"
+fi
+
 while true; do
     if check_system_health; then
         if [ "$FAIL_COUNT" -gt 0 ]; then
