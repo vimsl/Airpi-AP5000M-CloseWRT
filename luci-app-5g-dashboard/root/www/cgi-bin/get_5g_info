@@ -19,14 +19,22 @@ for section in $(uci show qmodem 2>/dev/null | sed -n 's/qmodem\.\([^.]*\)\..*/\
     fi
 done
 
-# 2. 速率 (usleep 200ms 采样)
+# 2. 速率 (优先usleep 200ms，降级sleep 1s)
 RX1=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
 TX1=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
-usleep 200000 2>/dev/null || sleep 1
-RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
-TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
-DL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($RX2 - $RX1) / 25000}")
-UL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($TX2 - $TX1) / 25000}")
+if command -v usleep >/dev/null 2>&1; then
+    usleep 200000
+    RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
+    TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
+    DL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($RX2 - $RX1) / 25000}")
+    UL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($TX2 - $TX1) / 25000}")
+else
+    sleep 1
+    RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
+    TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
+    DL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($RX2 - $RX1) * 8 / 1000000}")
+    UL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($TX2 - $TX1) * 8 / 1000000}")
+fi
 
 # 3. 系统温度
 SYS_TEMP=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
@@ -73,25 +81,17 @@ if [ -n "$CONFIG_SECTION" ]; then
     fi
 fi
 
-# 6. uqmi 补充 QCI + 天线
-QMI_DEV=""
-for dev in /dev/cdc-wdm*; do
-    [ -e "$dev" ] && QMI_DEV="$dev" && break
-done
-
-if [ -n "$QMI_DEV" ] && command -v uqmi >/dev/null 2>&1; then
-    SIGNAL_RAW=$(uqmi -d "$QMI_DEV" --get-signal-info 2>/dev/null)
-    if [ -n "$SIGNAL_RAW" ]; then
-        ANT_MAIN=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.rsrp' 2>/dev/null)
-        ANT_DIV=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.rsrp2' 2>/dev/null)
-    fi
-
-    SERVING_RAW=$(uqmi -d "$QMI_DEV" --get-serving-system 2>/dev/null)
-    if [ -n "$SERVING_RAW" ]; then
-        QCI_VAL=$(echo "$SERVING_RAW" | jsonfilter -e '@.qci' 2>/dev/null)
-        [ -n "$QCI_VAL" ] && QCI="$QCI_VAL"
-    fi
-fi
+# 6. uqmi 补充 QCI + 天线 (需要 kmod-qmi-proxy 才能工作)
+# 当前 qmodem 独占 /dev/cdc-wdm0，uqmi 会永久挂起
+# 等 kmod-qmi-proxy 编译进内核后再启用
+# QMI_DEV=""
+# for dev in /dev/cdc-wdm*; do
+#     [ -e "$dev" ] && QMI_DEV="$dev" && break
+# done
+# if [ -n "$QMI_DEV" ] && command -v uqmi >/dev/null 2>&1; then
+#     SIGNAL_RAW=$(timeout 2 uqmi -d "$QMI_DEV" --get-signal-info 2>/dev/null)
+#     ...
+# fi
 
 # 7. 网络状态
 [ "$CONNECT_STATUS" = "Yes" ] && NET_STATUS="connected"

@@ -38,6 +38,8 @@ if [ -n "$WRT_PACKAGE" ]; then
 fi
 
 #安装系统假死检测守护脚本
+mkdir -p ./package/base-files/files/usr/bin/
+mkdir -p ./package/base-files/files/etc/init.d/
 cp -f $GITHUB_WORKSPACE/Scripts/watchdog-check.sh ./package/base-files/files/usr/bin/watchdog-check.sh
 cp -f $GITHUB_WORKSPACE/Scripts/watchdog-init.sh ./package/base-files/files/etc/init.d/watchdog
 chmod 0755 ./package/base-files/files/usr/bin/watchdog-check.sh
