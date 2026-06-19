@@ -1,51 +1,56 @@
 #!/bin/sh
-
 echo "Content-Type: application/json"
 echo "Access-Control-Allow-Origin: *"
 echo ""
 
 IFACE="wwan0"
 
-# 1. 速率
-RX1=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
-TX1=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
-sleep 1
-RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
-TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
-DL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($RX2 - $RX1) * 8 / 1000000}")
-UL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($TX2 - $TX1) * 8 / 1000000}")
-
-# 2. 系统温度
-SYS_TEMP=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
-[ -n "$SYS_TEMP" ] && SYS_TEMP=$(awk "BEGIN {printf \"%.1f\", $SYS_TEMP/1000}") || SYS_TEMP="--"
-
-# 3. 自动发现 config_section
+# 1. 自动发现 config_section (优先 enabled)
 CONFIG_SECTION=""
 for section in $(uci show qmodem 2>/dev/null | sed -n 's/qmodem\.\([^.]*\)\..*/\1/p' | sort -u); do
     if uci get qmodem.$section.at_port >/dev/null 2>&1; then
-        CONFIG_SECTION="$section"
-        break
+        STATE=$(uci get qmodem.$section.state 2>/dev/null)
+        if [ "$STATE" = "enabled" ]; then
+            CONFIG_SECTION="$section"
+            break
+        elif [ -z "$CONFIG_SECTION" ]; then
+            CONFIG_SECTION="$section"
+        fi
     fi
 done
 
-# 默认值
+# 2. 速率 (usleep 200ms 采样)
+RX1=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
+TX1=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
+usleep 200000 2>/dev/null || sleep 1
+RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
+TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
+DL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($RX2 - $RX1) / 25000}")
+UL_SPEED=$(awk "BEGIN {printf \"%.2f\", ($TX2 - $TX1) / 25000}")
+
+# 3. 系统温度
+SYS_TEMP=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
+[ -n "$SYS_TEMP" ] && SYS_TEMP=$(awk "BEGIN {printf \"%.1f\", $SYS_TEMP/1000}") || SYS_TEMP="--"
+
+# 4. 默认值
 NET_STATUS="disconnected"; NET_MODE="--"; OPERATOR="--"; MCC="--"; MNC="--"
 CELLID="--"; PCI="--"; ARFCN="--"; BAND="--"; ULBW="--"; DLBW="--"; BW="--"
 RSRP="--"; RSRQ="--"; SINR="--"; QCI="--"; IMEI="--"
 IPV4="--"; IPV6="--"; MODEM_TEMP="$SYS_TEMP"; CONNECT_STATUS="No"
-ANT_MAIN="--"; ANT_DIV="--"
 
-# 4. 通过 ubus 获取 qmodem 数据
+# 5. ubus + jsonfilter
 get_val() { echo "$1" | jsonfilter -e "@.modem_info[$2].value" 2>/dev/null; }
 
 if [ -n "$CONFIG_SECTION" ]; then
     BASE_RAW=$(ubus call qmodem base_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
+    CELL_RAW=$(ubus call qmodem cell_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
+    SIM_RAW=$(ubus call qmodem sim_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
+
     if [ -n "$BASE_RAW" ]; then
         MODEM_TEMP=$(get_val "$BASE_RAW" 4)
         CONNECT_STATUS=$(get_val "$BASE_RAW" 6)
     fi
 
-    CELL_RAW=$(ubus call qmodem cell_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
     if [ -n "$CELL_RAW" ]; then
         NET_MODE=$(get_val "$CELL_RAW" 0)
         MCC=$(get_val "$CELL_RAW" 1)
@@ -62,29 +67,25 @@ if [ -n "$CONFIG_SECTION" ]; then
         BW="$DLBW"
     fi
 
-    SIM_RAW=$(ubus call qmodem sim_info "{\"config_section\":\"$CONFIG_SECTION\"}" 2>/dev/null)
     if [ -n "$SIM_RAW" ]; then
         OPERATOR=$(get_val "$SIM_RAW" 1)
         IMEI=$(get_val "$SIM_RAW" 3)
     fi
 fi
 
-# 5. 通过 uqmi (qmi-proxy) 补充天线分级和 QCI
+# 6. uqmi 补充 QCI + 天线
 QMI_DEV=""
 for dev in /dev/cdc-wdm*; do
     [ -e "$dev" ] && QMI_DEV="$dev" && break
 done
 
 if [ -n "$QMI_DEV" ] && command -v uqmi >/dev/null 2>&1; then
-    # 天线分级: 每根天线的 RSRP (uqmi返回扁平对象)
     SIGNAL_RAW=$(uqmi -d "$QMI_DEV" --get-signal-info 2>/dev/null)
     if [ -n "$SIGNAL_RAW" ]; then
         ANT_MAIN=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.rsrp' 2>/dev/null)
-        # 如果有第二根天线，尝试获取
         ANT_DIV=$(echo "$SIGNAL_RAW" | jsonfilter -e '@.rsrp2' 2>/dev/null)
     fi
 
-    # QCI: serving system
     SERVING_RAW=$(uqmi -d "$QMI_DEV" --get-serving-system 2>/dev/null)
     if [ -n "$SERVING_RAW" ]; then
         QCI_VAL=$(echo "$SERVING_RAW" | jsonfilter -e '@.qci' 2>/dev/null)
@@ -92,22 +93,30 @@ if [ -n "$QMI_DEV" ] && command -v uqmi >/dev/null 2>&1; then
     fi
 fi
 
-# 6. 网络状态
+# 7. 网络状态
+[ "$CONNECT_STATUS" = "Yes" ] && NET_STATUS="connected"
 if [ -d "/sys/class/net/$IFACE" ]; then
     CARRIER=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null || echo 0)
     [ "$CARRIER" = "1" ] && NET_STATUS="connected"
 fi
 
-# 7. IP 地址
+# 8. IP
 IPV4=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet addr:[0-9.]+' | cut -d: -f2)
 IPV6=$(ifconfig "$IFACE" 2>/dev/null | grep -oE 'inet6 addr: [^ ]+' | head -1 | cut -d' ' -f3)
 [ -z "$IPV4" ] && IPV4="--"
 [ -z "$IPV6" ] && IPV6="--"
 
-# 8. 输出 JSON
+# 9. 温度格式化
+MODEM_TEMP=$(echo "$MODEM_TEMP" | sed 's/[^0-9.]//g')
+[ -n "$MODEM_TEMP" ] && MODEM_TEMP="${MODEM_TEMP}°C" || MODEM_TEMP="$SYS_TEMP"
+
+# 10. 输出 JSON
+[ -z "$ANT_MAIN" ] && ANT_MAIN="${RSRP:-"--"}"
+[ -z "$ANT_DIV" ] && ANT_DIV="${RSRP:-"--"}"
+
 cat <<EOF
 {
-  "networkStatus": "$NET_STATUS",
+  "networkStatus": "${NET_STATUS}",
   "networkMode": "${NET_MODE:-"--"}",
   "operator": "${OPERATOR:-"--"}",
   "band": "${BAND:-"--"}",
@@ -122,12 +131,12 @@ cat <<EOF
   "cellId": "${CELLID:-"--"}",
   "qci": "${QCI:-"--"}",
   "imei": "${IMEI:-"--"}",
-  "temperature": "${MODEM_TEMP:-"$SYS_TEMP"}",
-  "downloadSpeed": "${DL_SPEED:-"0.00"}",
-  "uploadSpeed": "${UL_SPEED:-"0.00"}",
+  "temperature": "${MODEM_TEMP}",
+  "downloadSpeed": "${DL_SPEED}",
+  "uploadSpeed": "${UL_SPEED}",
   "ipv4": "${IPV4:-"--"}",
   "ipv6": "${IPV6:-"--"}",
-  "antMain": "${ANT_MAIN:-"--"}",
-  "antDiv": "${ANT_DIV:-"--"}"
+  "antMain": "${ANT_MAIN}",
+  "antDiv": "${ANT_DIV}"
 }
 EOF
