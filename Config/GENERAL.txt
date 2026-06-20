@@ -52,7 +52,7 @@ CONFIG_DEFAULT_kmod-gpio-button-hotplug=y
 CONFIG_DEFAULT_kmod-leds-gpio=y
 CONFIG_DEFAULT_kmod-nf-nathelper=y
 CONFIG_DEFAULT_kmod-nf-nathelper-extra=y
-CONFIG_DEFAULT_kmod-nft-offload=y
+# CONFIG_DEFAULT_kmod-nft-offload is not set
 CONFIG_DEFAULT_kmod-phy-aquantia=y
 CONFIG_DEFAULT_kmod-sfp=y
 CONFIG_DEFAULT_libc=y
@@ -173,6 +173,8 @@ CONFIG_KERNEL_NET_L3_MASTER_DEV=y
 CONFIG_KERNEL_MPTCP=y
 CONFIG_KERNEL_MPTCP_IPV6=y
 CONFIG_KERNEL_NF_CONNTRACK_TIMEOUT=y
+#禁用NF_FLOW_TABLE防止HNAT与qmi_wwan_f skb_tailroom冲突
+# CONFIG_NF_FLOW_TABLE is not set
 CONFIG_USE_FS_ACL_ATTR=y
 CONFIG_KERNEL_FS_POSIX_ACL=y
 CONFIG_KERNEL_BTRFS_FS_POSIX_ACL=y
@@ -353,7 +355,7 @@ CONFIG_PACKAGE_kmod-ipt-core=y
 CONFIG_PACKAGE_kmod-nf-conntrack=y
 CONFIG_PACKAGE_kmod-nf-conntrack-netlink=y
 CONFIG_PACKAGE_kmod-nf-conntrack6=y
-CONFIG_PACKAGE_kmod-nf-flow=y
+# CONFIG_PACKAGE_kmod-nf-flow is not set
 CONFIG_PACKAGE_kmod-nf-ipt=y
 CONFIG_PACKAGE_kmod-nf-log=y
 CONFIG_PACKAGE_kmod-nf-log6=y
@@ -367,7 +369,7 @@ CONFIG_PACKAGE_kmod-nft-compat=y
 CONFIG_PACKAGE_kmod-nft-core=y
 CONFIG_PACKAGE_kmod-nft-fib=y
 CONFIG_PACKAGE_kmod-nft-nat=y
-CONFIG_PACKAGE_kmod-nft-offload=y
+# CONFIG_PACKAGE_kmod-nft-offload is not set
 CONFIG_PACKAGE_kmod-ifb=y
 CONFIG_PACKAGE_kmod-libphy=y
 CONFIG_PACKAGE_kmod-macvlan=y
@@ -629,7 +631,7 @@ CONFIG_MTK_WIFI7_WSC_V2_SUPPORT=y
 CONFIG_MTK_WIFI7_DOT11W_PMF_SUPPORT=y
 CONFIG_MTK_WIFI7_TXBF_SUPPORT=y
 CONFIG_MTK_WIFI7_FAST_NAT_SUPPORT=y
-CONFIG_MTK_WIFI7_WHNAT_SUPPORT=m
+# CONFIG_MTK_WIFI7_WHNAT_SUPPORT is not set
 CONFIG_MTK_WIFI7_WARP_V2=y
 CONFIG_MTK_WIFI7_RTMP_FLASH_SUPPORT=y
 CONFIG_MTK_WIFI7_CAL_BIN_FILE_SUPPORT=y
