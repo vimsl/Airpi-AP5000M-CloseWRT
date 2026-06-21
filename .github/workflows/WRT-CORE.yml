@@ -178,6 +178,17 @@ jobs:
           # 复制本地5G看板插件
           cp -rf $GITHUB_WORKSPACE/luci-app-5g-dashboard ./luci-app-5g-dashboard
 
+      - name: Patch HNAT DTS
+        run: |
+          # 修复HNAT绑定wwan接口导致skb_tailroom冲突
+          find ./wrt/target/linux/mediatek -name "*.dts" -o -name "*.dtsi" | while read dts_file; do
+            if grep -q "ext-devices-prefix" "$dts_file" 2>/dev/null; then
+              echo "Patching HNAT in: $dts_file"
+              sed -i '/ext-devices-prefix/d' "$dts_file"
+              echo "Removed ext-devices-prefix"
+            fi
+          done
+
       - name: Custom Settings
         run: |
           cd ./wrt/
