@@ -23,8 +23,8 @@ check_system_health() {
     [ "$load" -gt "$max_load" ] 2>/dev/null && return 1
 
     # 3. 检查关键进程是否存活
-    pgrep -x procd >/dev/null 2>&1 || return 1
-    pgrep -x ubusd >/dev/null 2>&1 || return 1
+    pidof procd >/dev/null 2>&1 || return 1
+    pidof ubusd >/dev/null 2>&1 || return 1
 
     # 4. 检查内存是否耗尽（可用内存低于10MB）
     local mem_free=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
