@@ -178,6 +178,9 @@ jobs:
           # 复制本地5G看板插件
           cp -rf $GITHUB_WORKSPACE/luci-app-5g-dashboard ./luci-app-5g-dashboard
 
+          # 复制qmi_fix_skb内核模块
+          cp -rf $GITHUB_WORKSPACE/package/qmi_fix_skb ./qmi_fix_skb
+
       - name: Patch HNAT DTS
         run: |
           # 修复HNAT绑定wwan接口导致skb_tailroom冲突
