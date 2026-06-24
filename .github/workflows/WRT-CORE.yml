@@ -204,7 +204,14 @@ jobs:
 
           $GITHUB_WORKSPACE/Scripts/Settings.sh
 
-          make defconfig -j$(nproc) && make clean -j$(nproc)
+          make defconfig -j$(nproc)
+
+          # 强制启用KPROBES（defconfig可能覆盖）
+          sed -i 's/.*CONFIG_KPROBES.*/CONFIG_KPROBES=y/' .config
+          grep -q "CONFIG_KPROBES=y" .config || echo "CONFIG_KPROBES=y" >> .config
+
+          # 强制内核重编
+          make target/linux/clean -j$(nproc) || true
 
       - name: Download Packages
         if: env.WRT_TEST != 'true'
