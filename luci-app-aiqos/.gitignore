@@ -1,0 +1,14 @@
+# Compiled files
+*.o
+*.ko
+*.ipk
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
