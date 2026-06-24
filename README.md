@@ -27,3 +27,5 @@ Config——自定义配置
 
 #
 [![Stargazers over time](https://starchart.cc/VIKINGYFY/CloseWRT-CI.svg?variant=adaptive)](https://starchart.cc/VIKINGYFY/CloseWRT-CI)
+
+<!-- ci-trigger: kmod-sched-cake + cake-autorate added -->
