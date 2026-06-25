@@ -42,7 +42,6 @@ function action_status_json()
         sinr_coeff = "1.0"
     }
 
-    -- 读取 SINR 系数
     local f = io.open("/tmp/aiqos_sinr_coeff", "r")
     if f then
         local line = f:read("*line")
@@ -59,7 +58,6 @@ function action_status_json()
         end
     end
 
-    -- 读取 CAKE 队列状态
     local handle = io.popen("tc -s qdisc show dev wwan0 2>/dev/null | grep -A5 cake")
     if handle then
         local output = handle:read("*all")
@@ -73,7 +71,6 @@ function action_status_json()
         end
     end
 
-    -- 读取延迟（从 cake-autorate 日志）
     local handle3 = io.popen("tail -1 /var/log/cake-autorate.log 2>/dev/null | grep -oP 'OWD P99: \\K[0-9.]+'")
     if handle3 then
         local lat = handle3:read("*line")
@@ -83,7 +80,6 @@ function action_status_json()
         end
     end
 
-    -- 运行时间
     local f2 = io.open("/var/run/aiqosd.pid", "r")
     if f2 then
         local pid = f2:read("*line")
