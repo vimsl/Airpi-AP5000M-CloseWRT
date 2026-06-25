@@ -1,7 +1,7 @@
 --[[
 /usr/lib/lua/luci/model/cbi/aiqos.lua
-CBI 妯″瀷: 鐘舵€佷华琛ㄧ洏 + 涓夋。棰勮 + 涓冨紑鍏?+ 楂樼骇璁剧疆
-鍏ㄤ腑鏂囩‖缂栫爜锛岄浂鍥介檯鍖栦緷璧栵紝鍏煎 ImmortalWrt 24.10 ucode
+CBI 模型: 状态仪表盘 + 三档预设 + 七开关 + 高级设置
+全中文硬编码，零国际化依赖，兼容 ImmortalWrt 24.10 ucode
 ]]--
 
 local uci = require("luci.model.uci").cursor()
@@ -32,10 +32,10 @@ end
 
 local caps = get_capabilities()
 
-m = Map("aiqos", "5G AI 淇″彿浼樺寲",
-    "AIQoS - 鍩轰簬 cake-autorate + ModemManager 鐨勬櫤鑳?5G CPE 缃戠粶浼樺寲")
+m = Map("aiqos", "5G AI 信号优化",
+    "AIQoS - 基于 cake-autorate + ModemManager 的智能 5G CPE 网络优化")
 
--- ====== 鐘舵€佷华琛ㄧ洏 ======
+-- ====== 状态仪表盘 ======
 m.description = [=[
 <style>
 .aiqos-dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
@@ -48,12 +48,12 @@ m.description = [=[
 .aiqos-card.bad .value{color:#c62828}
 </style>
 <div class="aiqos-dashboard" id="status-cards">
-<div class="aiqos-card" id="card-sinr"><div class="label">淇″彿璐ㄩ噺</div><div class="value">--</div><div class="sub">SINR dB / RSRP dBm</div></div>
-<div class="aiqos-card" id="card-bandwidth"><div class="label">褰撳墠甯﹀</div><div class="value">--</div><div class="sub">CAKE 鍔ㄦ€佽皟鏁?/div></div>
-<div class="aiqos-card" id="card-latency"><div class="label">缃戠粶寤惰繜</div><div class="value">--</div><div class="sub">OWD P99</div></div>
-<div class="aiqos-card" id="card-uptime"><div class="label">杩愯鏃堕棿</div><div class="value">--</div><div class="sub">aiqosd</div></div>
+<div class="aiqos-card" id="card-sinr"><div class="label">信号质量</div><div class="value">--</div><div class="sub">SINR dB / RSRP dBm</div></div>
+<div class="aiqos-card" id="card-bandwidth"><div class="label">当前带宽</div><div class="value">--</div><div class="sub">CAKE 动态调整</div></div>
+<div class="aiqos-card" id="card-latency"><div class="label">网络延迟</div><div class="value">--</div><div class="sub">OWD P99</div></div>
+<div class="aiqos-card" id="card-uptime"><div class="label">运行时间</div><div class="value">--</div><div class="sub">aiqosd</div></div>
 </div>
-<div style="font-size:11px;color:#999;margin-bottom:16px">鏁版嵁姣?2 绉掕嚜鍔ㄥ埛鏂?/div>
+<div style="font-size:11px;color:#999;margin-bottom:16px">数据每 2 秒自动刷新</div>
 <script>
 (function(){
 function loadStatus(){
@@ -64,7 +64,7 @@ var s=document.getElementById('card-sinr');
 var b=document.getElementById('card-bandwidth');
 var l=document.getElementById('card-latency');
 var u=document.getElementById('card-uptime');
-if(d.sinr&&d.sinr!=='N/A'){s.querySelector('.value').textContent=d.sinr+' dB';var v=parseFloat(d.sinr);s.className='aiqos-card '+(v>=15?'good':v>=5?'warn':'bad');s.querySelector('.sub').textContent='SINR '+d.sinr+'dB / 绯绘暟='+d.sinr_coeff}else{s.querySelector('.value').textContent='--';s.className='aiqos-card'}
+if(d.sinr&&d.sinr!=='N/A'){s.querySelector('.value').textContent=d.sinr+' dB';var v=parseFloat(d.sinr);s.className='aiqos-card '+(v>=15?'good':v>=5?'warn':'bad');s.querySelector('.sub').textContent='SINR '+d.sinr+'dB / 系数='+d.sinr_coeff}else{s.querySelector('.value').textContent='--';s.className='aiqos-card'}
 if(d.bandwidth&&d.bandwidth!=='N/A'){b.querySelector('.value').textContent=d.bandwidth}else{b.querySelector('.value').textContent='--'}
 if(d.latency&&d.latency!=='N/A'){l.querySelector('.value').textContent=d.latency}else{l.querySelector('.value').textContent='--'}
 if(d.uptime&&d.uptime!=='N/A'){u.querySelector('.value').textContent=d.uptime}else{u.querySelector('.value').textContent='--'}
@@ -76,90 +76,90 @@ loadStatus()
 </script>
 ]=]
 
--- ====== 棰勮閰嶇疆 ======
-s = m:section(TypedSection, "preset", "棰勮閰嶇疆")
+-- ====== 预设配置 ======
+s = m:section(TypedSection, "preset", "预设配置")
 s.anonymous = true
 s.addremove = false
 
-preset = s:option(ListValue, "mode", "浼樺寲棰勮")
-preset:value("normal", "鏅€氱敤鎴?- 鏃ュ父娴忚锛屼粎闃茬紦鍐茶啫鑳€")
-preset:value("gamer", "娓告垙鐜╁ - 浣庡欢杩熸父鎴忎笌 VoIP")
-preset:value("geek", "鏋佸鐢ㄦ埛 - 鍏ㄩ儴鍔熻兘鍚敤锛堜笓瀹舵ā寮忥級")
+preset = s:option(ListValue, "mode", "优化预设")
+preset:value("normal", "普通用户 - 日常浏览，仅防缓冲膨胀")
+preset:value("gamer", "游戏玩家 - 低延迟游戏与 VoIP")
+preset:value("geek", "极客用户 - 全部功能启用（专家模式）")
 preset.default = "normal"
 preset.rmempty = false
-preset.description = "閫夋嫨棰勮灏嗚嚜鍔ㄩ厤缃笅鏂瑰紑鍏筹紝鎮ㄤ粛鍙崟鐙皟鏁淬€?
+preset.description = "选择预设将自动配置下方开关，您仍可单独调整。"
 
--- ====== 鍔熻兘寮€鍏?======
-s2 = m:section(TypedSection, "switches", "鍔熻兘寮€鍏?)
+-- ====== 功能开关 ======
+s2 = m:section(TypedSection, "switches", "功能开关")
 s2.anonymous = true
 s2.addremove = false
 
-o1 = s2:option(Flag, "enable_cake", "鈶?鍩虹闃茬紦鍐茶啫鑳€",
-    "鍚敤 cake-autorate 鍔ㄦ€佽皟鏁?CAKE 甯﹀锛屾秷闄ょ紦鍐茶啫鑳€")
+o1 = s2:option(Flag, "enable_cake", "① 基础防缓冲膨胀",
+    "启用 cake-autorate 动态调整 CAKE 带宽，消除缓冲膨胀")
 o1.default = "1"
 o1.rmempty = false
 
-o2 = s2:option(Flag, "enable_sinr", "鈶?淇″彿鑷€傚簲",
-    "鏍规嵁 5G SINR 璐ㄩ噺鍔ㄦ€佽皟鏁村甫瀹界郴鏁?)
+o2 = s2:option(Flag, "enable_sinr", "② 信号自适应",
+    "根据 5G SINR 质量动态调整带宽系数")
 o2.default = "1"
 o2.rmempty = false
 if not caps.modem_available then o2.disabled = true end
 
-o3 = s2:option(Flag, "enable_wifi", "鈶?WiFi 浼樺寲",
-    "鍚敤 TriTon 鑷姩淇￠亾涓庡姛鐜囦紭鍖?)
+o3 = s2:option(Flag, "enable_wifi", "③ WiFi 优化",
+    "启用 TriTon 自动信道与功率优化")
 o3.default = "0"
 o3.rmempty = false
 if not caps.wifi_available then o3.disabled = true end
 
-o4 = s2:option(Flag, "enable_ack", "鈶?婵€杩?ACK",
-    "鍚敤 CAKE ack-filter 婵€杩涙ā寮忥紝鍑忓皯涓婅鍐椾綑 ACK")
+o4 = s2:option(Flag, "enable_ack", "④ 激进 ACK",
+    "启用 CAKE ack-filter 激进模式，减少上行冗余 ACK")
 o4.default = "0"
 o4.rmempty = false
 
-o5 = s2:option(Flag, "enable_night_lock", "鈶?澶滈棿閿侀",
-    "鍑屾櫒 3 鐐硅嚜鍔ㄦ壂鎻忓苟閿佸畾鏈€浣冲皬鍖猴紙浼存湁 3-5 绉掓柇杩烇級")
+o5 = s2:option(Flag, "enable_night_lock", "⑤ 夜间锁频",
+    "凌晨 3 点自动扫描并锁定最佳小区（伴有 3-5 秒断连）")
 o5.default = "0"
 o5.rmempty = false
 if not caps.modem_available then o5.disabled = true end
 
-o6 = s2:option(Flag, "enable_ebpf", "鈶?eBPF 鏋侀檺涓㈠寘",
-    "鍦?XDP 灞傛櫤鑳戒涪寮冧綆浠峰€兼壒閲忔暟鎹寘锛堜笓瀹跺姛鑳斤級")
+o6 = s2:option(Flag, "enable_ebpf", "⑥ eBPF 极限丢包",
+    "在 XDP 层智能丢弃低价值批量数据包（专家功能）")
 o6.default = "0"
 o6.rmempty = false
 if not caps.ebpf_available then o6.disabled = true end
 
-o7 = s2:option(Flag, "enable_ai", "鈶?AI 棰勬祴锛堝疄楠屾€э級",
-    "鍚敤鍩轰簬 CNN 鐨勪俊鍙疯秼鍔块娴嬩互鎻愬墠璋冩暣鍙傛暟")
+o7 = s2:option(Flag, "enable_ai", "⑦ AI 预测（实验性）",
+    "启用基于 CNN 的信号趋势预测以提前调整参数")
 o7.default = "0"
 o7.rmempty = false
 o7:depends("show_advanced", "1")
 
--- ====== 楂樼骇璁剧疆 ======
-s3 = m:section(TypedSection, "advanced", "楂樼骇璁剧疆")
+-- ====== 高级设置 ======
+s3 = m:section(TypedSection, "advanced", "高级设置")
 s3.anonymous = true
 s3.addremove = false
 
-a0 = s3:option(Flag, "show_advanced", "鏄剧ず瀹為獙鎬у姛鑳?)
+a0 = s3:option(Flag, "show_advanced", "显示实验性功能")
 a0.default = "0"
-a0.description = "鍚敤鍚庯紝AI 棰勬祴寮€鍏冲皢鍙锛屽苟瑙ｉ攣楂樼骇鍙傛暟璋冩暣"
+a0.description = "启用后，AI 预测开关将可见，并解锁高级参数调整"
 
-a1 = s3:option(Value, "poll_interval", "淇″彿杞闂撮殧锛堢锛?)
+a1 = s3:option(Value, "poll_interval", "信号轮询间隔（秒）")
 a1.datatype = "uinteger"
 a1.default = "2"
 a1:depends("show_advanced", "1")
 
-a2 = s3:option(Value, "min_bandwidth", "鏈€灏忓甫瀹斤紙Mbps锛?)
+a2 = s3:option(Value, "min_bandwidth", "最小带宽（Mbps）")
 a2.datatype = "uinteger"
 a2.default = "5"
 a2:depends("show_advanced", "1")
 
-a3 = s3:option(Value, "lock_freq", "閿佸畾鐩爣棰戠偣")
+a3 = s3:option(Value, "lock_freq", "锁定目标频点")
 a3.datatype = "uinteger"
 a3.optional = true
 a3:depends("enable_night_lock", "1")
-a3.description = "渚嬪 5078锛坣78锛夈€傜暀绌哄垯鑷姩鎵弿銆?
+a3.description = "例如 5078（n78）。留空则自动扫描。"
 
--- ====== 淇濆瓨鍥炶皟 ======
+-- ====== 保存回调 ======
 function m.on_after_commit(map)
     os.execute("/etc/init.d/aiqosd restart >/dev/null 2>&1 &")
 end
