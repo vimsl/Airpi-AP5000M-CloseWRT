@@ -181,6 +181,9 @@ jobs:
           # 复制qmi_fix_skb内核模块
           cp -rf $GITHUB_WORKSPACE/package/qmi_fix_skb ./qmi_fix_skb
 
+          #复制luci-app-aiqos AI信号优化套件
+          cp -rf $GITHUB_WORKSPACE/luci-app-aiqos ./luci-app-aiqos
+
       - name: Patch HNAT DTS
         run: |
           # 修复HNAT绑定wwan接口导致skb_tailroom冲突
