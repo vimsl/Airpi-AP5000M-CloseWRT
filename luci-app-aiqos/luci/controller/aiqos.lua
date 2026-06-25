@@ -1,6 +1,6 @@
 --[[
 /usr/lib/lua/luci/controller/aiqos.lua
-LuCI控制器: 菜单 + 路由 + 状态API
+LuCI 鎺у埗鍣? 鑿滃崟 + 璺敱 + 鐘舵€?API锛堜腑鏂囩晫闈級
 ]]--
 
 module("luci.controller.aiqos", package.seeall)
@@ -8,12 +8,12 @@ module("luci.controller.aiqos", package.seeall)
 function index()
     entry({"admin", "services", "aiqos"},
           cbi("aiqos"),
-          translate("5G AI Optimization"),
-          50)
+          _("5G AI 淇″彿浼樺寲"),
+          50).dependent = false
 
     entry({"admin", "services", "aiqos", "status"},
           view("aiqos/status"),
-          translate("Status"),
+          _("鐘舵€?),
           10)
 
     entry({"admin", "services", "aiqos", "status_json"},
@@ -42,7 +42,7 @@ function action_status_json()
         sinr_coeff = "1.0"
     }
 
-    -- 读取SINR系数
+    -- 璇诲彇 SINR 绯绘暟
     local f = io.open("/tmp/aiqos_sinr_coeff", "r")
     if f then
         local line = f:read("*line")
@@ -59,8 +59,7 @@ function action_status_json()
         end
     end
 
-    -- 读取CAKE队列状态
-    local handle = io.popen("tc -s qdisc show dev wwan0 2>/dev/null | grep -A5 cake")
+    -- 璇诲彇 CAKE 闃熷垪鐘舵€?    local handle = io.popen("tc -s qdisc show dev wwan0 2>/dev/null | grep -A5 cake")
     if handle then
         local output = handle:read("*all")
         handle:close()
@@ -73,7 +72,16 @@ function action_status_json()
         end
     end
 
-    -- 运行时间
+    -- 璇诲彇寤惰繜锛堜粠 cake-autorate 鏃ュ織锛?    local handle3 = io.popen("tail -1 /var/log/cake-autorate.log 2>/dev/null | grep -oP 'OWD P99: \\K[0-9.]+'")
+    if handle3 then
+        local lat = handle3:read("*line")
+        handle3:close()
+        if lat then
+            status.latency = lat .. " ms"
+        end
+    end
+
+    -- 杩愯鏃堕棿
     local f2 = io.open("/var/run/aiqosd.pid", "r")
     if f2 then
         local pid = f2:read("*line")
