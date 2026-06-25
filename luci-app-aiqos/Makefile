@@ -21,7 +21,7 @@ define Package/luci-app-aiqos
   CATEGORY:=LuCI
   SUBMENU:=9. Applications
   TITLE:=5G AI Signal Optimization for H5000M
-  DEPENDS:=+luci-base +luci-compat +cake-autorate +modemmanager +modemmanager-utils
+  DEPENDS:=+luci-base +luci-compat +kmod-sched-cake +bc +jq +modemmanager
   PKGARCH:=all
 endef
 
