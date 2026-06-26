@@ -6,13 +6,14 @@
 # 防护: uqmi超时保护 + 随机抖动 + 退避机制 + 日志轮转
 
 SINR_FILE="/tmp/aiqos_sinr_coeff"
+SINR_LOCK="/tmp/sinr_injector.lock"
 LOG_FILE="/var/log/sinr_injector.log"
 LOG_MAX_SIZE=102400  # 100KB 日志上限
 BASE_INTERVAL=${SINR_INJECTOR_INTERVAL:-2}
 UQMI_TIMEOUT=3       # uqmi 超时秒数
-BACKOFF_MAX=30       # 最大退避间隔
+BACKOFF_MAX=15       # 最大退避间隔 (从30降到15, 减少断档)
 CONSECUTIVE_TIMEOUTS=0
-MAX_TIMEOUTS=3       # 连续超时次数触发退避
+MAX_TIMEOUTS=5       # 连续超时次数触发退避 (从3升到5, 更宽容)
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
@@ -23,6 +24,25 @@ log() {
         mv "${LOG_FILE}.tmp" "$LOG_FILE"
         log "Log rotated (was ${size} bytes)"
     fi
+}
+
+# 互斥: 检查 night_lock 是否在运行
+check_night_lock() {
+    if [ -f "/tmp/night_lock.lock" ]; then
+        log "night_lock running, skipping this cycle"
+        return 1
+    fi
+    return 0
+}
+
+# 互斥: 创建自己的锁文件
+create_lock() {
+    echo $$ > "$SINR_LOCK"
+}
+
+# 互斥: 删除锁文件
+remove_lock() {
+    rm -f "$SINR_LOCK"
 }
 
 # 检测 modem 设备路径
@@ -153,6 +173,7 @@ ewma_filter() {
 
 main() {
     log "SINR Injector started (interval=${BASE_INTERVAL}s, uqmi_timeout=${UQMI_TIMEOUT}s)"
+    create_lock
 
     local dev=$(detect_modem)
     if [ -z "$dev" ]; then
@@ -163,6 +184,11 @@ main() {
 
     local counter=0
     while true; do
+        # 检查 night_lock 是否在运行 (互斥)
+        if ! check_night_lock; then
+            sleep 5
+            continue
+        fi
         local raw_sinr=$(get_sinr)
         local sinr_ret=$?
 
@@ -201,6 +227,6 @@ main() {
     done
 }
 
-trap 'log "SINR Injector stopped"; exit 0' INT TERM
+trap 'remove_lock; log "SINR Injector stopped"; exit 0' INT TERM
 
 main
