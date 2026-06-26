@@ -1,6 +1,6 @@
 --[[
 /usr/lib/lua/luci/model/cbi/aiqos.lua
-SimpleForm 版本: 绕过 CBI submitstate() 兼容性问题
+SimpleForm + 手动提交处理器
 兼容 ImmortalWrt 24.10 ucode 调度器
 ]]--
 
@@ -52,7 +52,8 @@ end
 ensure_uci()
 
 m = SimpleForm("aiqos", "5G AI 信号优化",
-    "AIQoS - 基于 cake-autorate + ModemManager 的智能 5G CPE 网络优化")
+    "AIQoS - 基于 cake-autorate + ModemManager 的智能 5G CPE 网络优化\n" ..
+    "<input type='hidden' name='_ts' value='" .. os.time() .. "'>")
 m.reset = false
 m.submit = "保存并应用"
 
@@ -172,15 +173,13 @@ a3.description = "例如 5078（n78）。留空则自动扫描。"
 
 -- ====== 提交回调 ======
 m.on_parse = function(self)
-    -- 只在用户点击提交时处理
-    if not luci.http.formvalue("cbi.submit") then
-        return
-    end
+    -- 检测提交: SimpleForm 的 submit 按钮会发送 submit 参数
+    local btn = luci.http.formvalue("submit")
+    if not btn then return end
 
     local val = luci.http.formvalue
 
     uci:set("aiqos", "preset", "mode", val("mode") or "normal")
-
     uci:set("aiqos", "switches", "enable_cake", val("enable_cake") or "0")
     uci:set("aiqos", "switches", "enable_sinr", val("enable_sinr") or "0")
     uci:set("aiqos", "switches", "enable_wifi", val("enable_wifi") or "0")
@@ -188,7 +187,6 @@ m.on_parse = function(self)
     uci:set("aiqos", "switches", "enable_night_lock", val("enable_night_lock") or "0")
     uci:set("aiqos", "switches", "enable_ebpf", val("enable_ebpf") or "0")
     uci:set("aiqos", "switches", "enable_ai", val("enable_ai") or "0")
-
     uci:set("aiqos", "advanced", "show_advanced", val("show_advanced") or "0")
     uci:set("aiqos", "advanced", "poll_interval", val("poll_interval") or "2")
     uci:set("aiqos", "advanced", "min_bandwidth", val("min_bandwidth") or "5")
