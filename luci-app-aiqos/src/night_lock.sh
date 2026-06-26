@@ -58,18 +58,48 @@ detect_modem() {
 # ====== qmodem 进程控制 (AT 串口互斥) ======
 QMODEM_PID=""
 pause_qmodem() {
+    # 检查 sinr_injector 是否在运行 (互斥)
+    if [ -f "/tmp/sinr_injector.lock" ]; then
+        log "sinr_injector running, waiting for it to pause..."
+        local wait=0
+        while [ -f "/tmp/sinr_injector.lock" ] && [ "$wait" -lt 10 ]; do
+            sleep 1
+            wait=$((wait + 1))
+        done
+    fi
+
     QMODEM_PID=$(pgrep -f "qmodem" 2>/dev/null | head -1)
     if [ -n "$QMODEM_PID" ]; then
+        # 检查 qmodem 当前状态
+        local state=$(cat /proc/$QMODEM_PID/status 2>/dev/null | grep "^State:" | awk '{print $2}')
+        log "qmodem state before STOP: $state"
+
         kill -STOP "$QMODEM_PID" 2>/dev/null
-        log "Paused qmodem (PID=$QMODEM_PID) for AT safety"
         sleep 1
+
+        # 验证 STOP 生效
+        local new_state=$(cat /proc/$QMODEM_PID/status 2>/dev/null | grep "^State:" | awk '{print $2}')
+        if [ "$new_state" = "T" ] || [ "$new_state" = "t" ]; then
+            log "Paused qmodem (PID=$QMODEM_PID) - verified state=T"
+        else
+            log "WARNING: qmodem STOP may not have taken effect (state=$new_state)"
+            QMODEM_PID=""  # 放弃控制, 不冒险
+        fi
     fi
 }
 
 resume_qmodem() {
     if [ -n "$QMODEM_PID" ]; then
         kill -CONT "$QMODEM_PID" 2>/dev/null
-        log "Resumed qmodem (PID=$QMODEM_PID)"
+        sleep 1
+
+        # 验证恢复
+        local state=$(cat /proc/$QMODEM_PID/status 2>/dev/null | grep "^State:" | awk '{print $2}')
+        if [ "$state" = "S" ] || [ "$state" = "R" ]; then
+            log "Resumed qmodem (PID=$QMODEM_PID) - verified state=$state"
+        else
+            log "WARNING: qmodem may not have recovered properly (state=$state)"
+        fi
         QMODEM_PID=""
     fi
 }
