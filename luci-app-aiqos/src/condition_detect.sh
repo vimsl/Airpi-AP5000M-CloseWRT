@@ -31,7 +31,7 @@ detect_ebpf() {
     echo "false"
 }
 
-# 检测Modem (兼容 qmodem/uqmi/ModemManager)
+# 检测Modem (兼容 qmodem/uqmi/ModemManager/netifd)
 detect_modem() {
     # 方式1: 检查 uqmi 设备
     for dev in /dev/cdc-wdm0 /dev/cdc-wdm1 /dev/cdc-wdm2; do
@@ -41,22 +41,37 @@ detect_modem() {
         fi
     done
 
-    # 方式2: 检查 qmodem 命令
+    # 方式2: 检查 wwan 网络接口 (netifd 管理)
+    if [ -d "/sys/class/net/wwan0" ]; then
+        local carrier=$(cat /sys/class/net/wwan0/carrier 2>/dev/null)
+        if [ -n "$carrier" ] && [ "$carrier" != "0" ]; then
+            echo "true"
+            return
+        fi
+        # 即使没有 carrier，接口存在也说明有 modem
+        echo "true"
+        return
+    fi
+
+    # 方式3: 检查 qmodem 命令
     if command -v qmodem >/dev/null 2>&1; then
-        local info=$(qmodem status 2>/dev/null)
-        if [ -n "$info" ]; then
+        local info=$(timeout 3 qmodem status 2>/dev/null)
+        if [ -n "$info" ] && ! echo "$info" | grep -qi "error"; then
             echo "true"
             return
         fi
     fi
 
-    # 方式3: 检查 ModemManager (向后兼容)
+    # 方式4: 检查 USB 设备 (FM170 等)
+    if lsusb 2>/dev/null | grep -qi "19d2:0537\|2c7c:0900\|2c7c:030b"; then
+        echo "true"
+        return
+    fi
+
+    # 方式5: 检查 ModemManager (向后兼容)
     if pgrep -x "ModemManager" >/dev/null 2>&1; then
-        local modem_count=$(mmcli -L 2>/dev/null | grep -c "Modem" || echo 0)
-        if [ "$modem_count" -gt 0 ]; then
-            echo "true"
-            return
-        fi
+        echo "true"
+        return
     fi
 
     echo "false"
