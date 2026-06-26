@@ -113,7 +113,16 @@ send_at() {
         sleep 1
         cat "$AT_PORT" 2>/dev/null | head -5
     elif [ -n "$MODEM_DEV" ]; then
-        timeout 5 uqmi -d "$MODEM_DEV" --send-at "$cmd" 2>/dev/null
+        # 纯shell超时: 后台执行 + kill
+        uqmi -d "$MODEM_DEV" --send-at "$cmd" > /dev/null 2>&1 &
+        local pid=$!
+        local elapsed=0
+        while [ "$elapsed" -lt 5 ]; do
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1; elapsed=$((elapsed + 1))
+        done
+        if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid" 2>/dev/null; fi
+        wait "$pid" 2>/dev/null
     elif pgrep -x "ModemManager" >/dev/null 2>&1; then
         mmcli -m 0 --command="$cmd" 2>/dev/null
     fi
@@ -123,7 +132,19 @@ send_at() {
 # ====== 获取信号信息 ======
 get_signal() {
     if [ -n "$MODEM_DEV" ]; then
-        local info=$(timeout 3 uqmi -d "$MODEM_DEV" --get-signal-info 2>/dev/null)
+        # 纯shell超时
+        local tmpout=$(mktemp)
+        uqmi -d "$MODEM_DEV" --get-signal-info > "$tmpout" 2>/dev/null &
+        local pid=$!
+        local elapsed=0
+        while [ "$elapsed" -lt 3 ]; do
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1; elapsed=$((elapsed + 1))
+        done
+        if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid" 2>/dev/null; fi
+        wait "$pid" 2>/dev/null
+        local info=$(cat "$tmpout")
+        rm -f "$tmpout"
         local sinr=$(echo "$info" | grep -o '"sinr":[0-9.e+-]*' | head -1 | cut -d: -f2)
         local rsrp=$(echo "$info" | grep -o '"rsrp":-*[0-9]*' | head -1 | cut -d: -f2)
         echo "sinr=${sinr:-0} rsrp=${rsrp:-0}"
