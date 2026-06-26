@@ -5,7 +5,6 @@ SimpleForm 版本: 绕过 CBI submitstate() 兼容性问题
 ]]--
 
 local uci = require("luci.model.uci").cursor()
-local sys = require("luci.sys")
 
 local function get_capabilities()
     local file = io.open("/tmp/aiqos_capability.json", "r")
@@ -23,6 +22,34 @@ local function get_capabilities()
 end
 
 local caps = get_capabilities()
+
+-- 确保 UCI 配置文件和 section 存在
+local function ensure_uci()
+    if not uci:get("aiqos", "preset") then
+        uci:section("aiqos", "preset", "preset")
+        uci:set("aiqos", "preset", "mode", "normal")
+    end
+    if not uci:get("aiqos", "switches") then
+        uci:section("aiqos", "switches", "switches")
+        uci:set("aiqos", "switches", "enable_cake", "1")
+        uci:set("aiqos", "switches", "enable_sinr", "1")
+        uci:set("aiqos", "switches", "enable_wifi", "0")
+        uci:set("aiqos", "switches", "enable_ack", "0")
+        uci:set("aiqos", "switches", "enable_night_lock", "0")
+        uci:set("aiqos", "switches", "enable_ebpf", "0")
+        uci:set("aiqos", "switches", "enable_ai", "0")
+    end
+    if not uci:get("aiqos", "advanced") then
+        uci:section("aiqos", "advanced", "advanced")
+        uci:set("aiqos", "advanced", "show_advanced", "0")
+        uci:set("aiqos", "advanced", "poll_interval", "2")
+        uci:set("aiqos", "advanced", "min_bandwidth", "5")
+        uci:set("aiqos", "advanced", "lock_freq", "")
+    end
+    uci:commit("aiqos")
+end
+
+ensure_uci()
 
 m = SimpleForm("aiqos", "5G AI 信号优化",
     "AIQoS - 基于 cake-autorate + ModemManager 的智能 5G CPE 网络优化")
@@ -143,41 +170,32 @@ a3.optional = true
 a3.default = uci:get("aiqos", "advanced", "lock_freq") or ""
 a3.description = "例如 5078（n78）。留空则自动扫描。"
 
--- ====== 保存回调 ======
-function m.on_parse(self)
-    local form = luci.http.formvalue
+-- ====== 提交回调 ======
+m.on_parse = function(self)
+    -- 只在用户点击提交时处理
+    if not luci.http.formvalue("cbi.submit") then
+        return
+    end
 
-    -- 预设配置
-    local mode = form("mode") or "normal"
-    uci:set("aiqos", "preset", "mode", mode)
+    local val = luci.http.formvalue
 
-    -- 功能开关
-    local sw = "switches"
-    if not uci:get("aiqos", sw) then uci:set("aiqos", sw, "switches") end
-    uci:set("aiqos", sw, "enable_cake", form("enable_cake") or "0")
-    uci:set("aiqos", sw, "enable_sinr", form("enable_sinr") or "0")
-    uci:set("aiqos", sw, "enable_wifi", form("enable_wifi") or "0")
-    uci:set("aiqos", sw, "enable_ack", form("enable_ack") or "0")
-    uci:set("aiqos", sw, "enable_night_lock", form("enable_night_lock") or "0")
-    uci:set("aiqos", sw, "enable_ebpf", form("enable_ebpf") or "0")
-    uci:set("aiqos", sw, "enable_ai", form("enable_ai") or "0")
+    uci:set("aiqos", "preset", "mode", val("mode") or "normal")
 
-    -- 高级设置
-    local adv = "advanced"
-    if not uci:get("aiqos", adv) then uci:set("aiqos", adv, "advanced") end
-    uci:set("aiqos", adv, "show_advanced", form("show_advanced") or "0")
-    uci:set("aiqos", adv, "poll_interval", form("poll_interval") or "2")
-    uci:set("aiqos", adv, "min_bandwidth", form("min_bandwidth") or "5")
-    uci:set("aiqos", adv, "lock_freq", form("lock_freq") or "")
+    uci:set("aiqos", "switches", "enable_cake", val("enable_cake") or "0")
+    uci:set("aiqos", "switches", "enable_sinr", val("enable_sinr") or "0")
+    uci:set("aiqos", "switches", "enable_wifi", val("enable_wifi") or "0")
+    uci:set("aiqos", "switches", "enable_ack", val("enable_ack") or "0")
+    uci:set("aiqos", "switches", "enable_night_lock", val("enable_night_lock") or "0")
+    uci:set("aiqos", "switches", "enable_ebpf", val("enable_ebpf") or "0")
+    uci:set("aiqos", "switches", "enable_ai", val("enable_ai") or "0")
+
+    uci:set("aiqos", "advanced", "show_advanced", val("show_advanced") or "0")
+    uci:set("aiqos", "advanced", "poll_interval", val("poll_interval") or "2")
+    uci:set("aiqos", "advanced", "min_bandwidth", val("min_bandwidth") or "5")
+    uci:set("aiqos", "advanced", "lock_freq", val("lock_freq") or "")
 
     uci:commit("aiqos")
-
-    -- 重启服务
     os.execute("/etc/init.d/aiqosd restart >/dev/null 2>&1 &")
-
-    -- 显示成功消息
-    self.status = "success"
-    self.message = "配置已保存并应用"
 end
 
 return m
