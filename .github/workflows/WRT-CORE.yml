@@ -197,7 +197,7 @@ jobs:
               else
                 echo "wwan already in ext-devices-prefix: $dts_file"
               fi
-              echo "Removed ext-devices-prefix"
+
             fi
           done
 
