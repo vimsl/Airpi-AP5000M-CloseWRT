@@ -56,13 +56,29 @@ detect_modem() {
     return 1
 }
 
-# 带超时保护的 uqmi 调用
+# 带超时保护的 uqmi 调用 (纯shell实现, 无timeout命令依赖)
 uqmi_safe() {
-    timeout "$UQMI_TIMEOUT" uqmi "$@" 2>/dev/null
-    local ret=$?
-    if [ "$ret" -eq 124 ]; then
+    local tmpout=$(mktemp)
+    uqmi "$@" > "$tmpout" 2>/dev/null &
+    local pid=$!
+    local elapsed=0
+    while [ "$elapsed" -lt "$UQMI_TIMEOUT" ]; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            break
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null
+        wait "$pid" 2>/dev/null
+        rm -f "$tmpout"
         return 1  # timeout
     fi
+    wait "$pid" 2>/dev/null
+    local ret=$?
+    cat "$tmpout"
+    rm -f "$tmpout"
     return "$ret"
 }
 
