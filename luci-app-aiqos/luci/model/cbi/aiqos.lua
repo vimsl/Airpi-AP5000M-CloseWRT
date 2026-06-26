@@ -52,10 +52,16 @@ end
 ensure_uci()
 
 m = SimpleForm("aiqos", "5G AI 信号优化",
-    "AIQoS - 基于 cake-autorate + ModemManager 的智能 5G CPE 网络优化\n" ..
-    "<input type='hidden' name='_ts' value='" .. os.time() .. "'>")
+    "AIQoS - 基于 cake-autorate + ModemManager 的智能 5G CPE 网络优化")
 m.reset = false
 m.submit = "保存并应用"
+
+-- 添加隐藏字段: 默认值用时间戳，每次页面加载都不同，强制变更检测
+s0 = m:section(SimpleSection)
+s0.anonymous = true
+hidden = s0:option(Value, "_aiqos_ts", "")
+hidden.default = tostring(os.time())
+hidden.readonly = true
 
 -- ====== 状态仪表盘 ======
 m.description = [=[
@@ -179,6 +185,7 @@ m.on_parse = function(self)
 
     local val = luci.http.formvalue
 
+    -- 忽略时间戳字段
     uci:set("aiqos", "preset", "mode", val("mode") or "normal")
     uci:set("aiqos", "switches", "enable_cake", val("enable_cake") or "0")
     uci:set("aiqos", "switches", "enable_sinr", val("enable_sinr") or "0")
