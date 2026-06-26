@@ -75,8 +75,25 @@ detect_cake_autorate() {
 
 # 检测CAKE qdisc支持
 detect_cake_qdisc() {
+    # 先检查内核模块
+    if lsmod 2>/dev/null | grep -q "sch_cake"; then
+        echo "true"
+        return
+    fi
+    # 尝试实际添加 (会自动删除)
     if tc qdisc add dev lo root cake 2>/dev/null; then
         tc qdisc del dev lo root cake 2>/dev/null
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# 检测 eqos-mtk (MTK 硬件 QoS)
+detect_eqos_mtk() {
+    if [ -f "/etc/init.d/eqos" ] || [ -f "/usr/bin/eqos-mtk" ]; then
+        echo "true"
+    elif tc qdisc show dev wwan0 2>/dev/null | grep -q "hfsc\|mq\|hrtb"; then
         echo "true"
     else
         echo "false"
@@ -99,6 +116,7 @@ generate_json() {
     local modem=$(detect_modem)
     local cake=$(detect_cake_autorate)
     local cake_qdisc=$(detect_cake_qdisc)
+    local eqos_mtk=$(detect_eqos_mtk)
     local triton=$(detect_triton)
 
     cat > "$OUTPUT_FILE" << EOF
@@ -108,6 +126,7 @@ generate_json() {
     "modem_available": $modem,
     "cake_autorate_available": $cake,
     "cake_qdisc_available": $cake_qdisc,
+    "eqos_mtk_available": $eqos_mtk,
     "triton_available": $triton,
     "timestamp": $(date '+%s')
 }
