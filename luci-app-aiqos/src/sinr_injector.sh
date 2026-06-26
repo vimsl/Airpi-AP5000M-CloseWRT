@@ -77,23 +77,39 @@ get_sinr_uqmi() {
         return 1
     fi
 
-    # 尝试解析 5G NR SINR
-    local sinr=$(echo "$info" | grep -o '"sinr":[0-9.e+-]*' | head -1 | cut -d: -f2)
-
-    # 如果没有 5G，尝试 LTE
-    if [ -z "$sinr" ] || [ "$sinr" = "null" ]; then
-        sinr=$(echo "$info" | grep -o '"sinr":[0-9.e+-]*' | tail -1 | cut -d: -f2)
+    # 调试: 记录原始输出 (每50条一次)
+    if [ $((RANDOM % 50)) -eq 0 ]; then
+        log "uqmi raw: $info"
     fi
 
-    # 从 RSRP 估算 SINR (备用方案)
+    # 尝试解析 JSON 格式的 sinr
+    # uqmi 输出可能是: {"type":"lte","rssi":-67,"rsrp":-92,"sinr":15.0}
+    local sinr=""
+    
+    # 方法1: grep sinr 字段 (支持负数和小数)
+    sinr=$(echo "$info" | grep -oP '"sinr"\s*:\s*-?[0-9]+\.?[0-9]*' | head -1 | grep -oP ':\s*-?[0-9]+\.?[0-9]*' | tr -d ': ')
+    
+    # 方法2: 如果没有 sinr 字段，从 rsrp 估算
     if [ -z "$sinr" ] || [ "$sinr" = "null" ]; then
-        local rsrp=$(echo "$info" | grep -o '"rsrp":-*[0-9]*' | head -1 | cut -d: -f2)
+        local rsrp=$(echo "$info" | grep -oP '"rsrp"\s*:\s*-?[0-9]+' | head -1 | grep -oP ':\s*-?[0-9]+' | tr -d ': ')
         if [ -n "$rsrp" ] && [ "$rsrp" != "null" ]; then
             sinr=$(echo "scale=1; ($rsrp + 140) / 5" | bc 2>/dev/null)
         fi
     fi
 
-    echo "$sinr" | sed 's/[^0-9.-]//g'
+    # 范围验证: SINR 正常范围 -30 ~ 40 dB
+    if [ -n "$sinr" ]; then
+        local sinr_int=$(printf "%.0f" "$sinr" 2>/dev/null)
+        if [ -n "$sinr_int" ] && [ "$sinr_int" -ge -30 ] && [ "$sinr_int" -le 40 ]; then
+            echo "$sinr"
+            return 0
+        else
+            log "WARNING: SINR out of range: $sinr (expected -30~40)"
+            return 1
+        fi
+    fi
+
+    return 1
 }
 
 # 通过 qmodem 获取 SINR (备用)
