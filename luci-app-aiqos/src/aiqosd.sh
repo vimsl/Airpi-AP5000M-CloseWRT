@@ -144,6 +144,13 @@ start_ai_predictor() {
 start_service() {
     logger -t aiqos "========== AIQoS Starting =========="
     
+    # 杀掉所有旧的 aiqosd 实例 (防止进程分裂)
+    killall -9 aiqosd.sh 2>/dev/null
+    killall -9 sinr_injector.sh 2>/dev/null
+    rm -f /var/run/aiqosd.pid
+    rm -f /tmp/sinr_injector.lock
+    sleep 1
+    
     get_config
     
     # 按依赖顺序启动
@@ -158,14 +165,18 @@ start_service() {
     
     echo $$ > /var/run/aiqosd.pid
     
-    logger -t aiqos "AIQoS started"
+    logger -t aiqos "AIQoS started (PID=$$)"
 }
 
 # ====== 停止函数 ======
 stop_service() {
     logger -t aiqos "========== AIQoS Stopping =========="
     
+    # 杀掉所有 aiqosd 和 sinr_injector 实例
+    killall -9 aiqosd.sh 2>/dev/null
+    killall -9 sinr_injector.sh 2>/dev/null
     start-stop-daemon -K -p /var/run/sinr_injector.pid 2>/dev/null
+    start-stop-daemon -K -p /var/run/aiqosd.pid 2>/dev/null
     
     /etc/init.d/cake-autorate stop 2>/dev/null
     killall cake-autorate.sh 2>/dev/null
@@ -183,6 +194,8 @@ stop_service() {
     fi
     
     rm -f /var/run/aiqosd.pid
+    rm -f /tmp/sinr_injector.lock
+    rm -f /tmp/night_lock.lock
     
     logger -t aiqos "AIQoS stopped"
 }
@@ -193,3 +206,4 @@ reload_service() {
     sleep 1
     start
 }
+
