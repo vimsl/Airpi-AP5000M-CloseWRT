@@ -190,7 +190,13 @@ jobs:
           find ./wrt/target/linux/mediatek -name "*.dts" -o -name "*.dtsi" | while read dts_file; do
             if grep -q "ext-devices-prefix" "$dts_file" 2>/dev/null; then
               echo "Patching HNAT in: $dts_file"
-              sed -i '/ext-devices-prefix/d' "$dts_file"
+                            # 确保 wwan0 在 HNAT 白名单中
+              if ! grep "ext-devices-prefix" "$dts_file" | grep -q "wwan"; then
+                echo "Adding wwan to ext-devices-prefix: $dts_file"
+                sed -i 's/ext-devices-prefix = "\(.*\)"/ext-devices-prefix = "\1,wwan"/' "$dts_file"
+              else
+                echo "wwan already in ext-devices-prefix: $dts_file"
+              fi
               echo "Removed ext-devices-prefix"
             fi
           done
