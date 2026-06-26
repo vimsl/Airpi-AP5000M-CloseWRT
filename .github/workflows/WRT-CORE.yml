@@ -213,6 +213,9 @@ jobs:
           sed -i 's/.*CONFIG_KPROBES.*/CONFIG_KPROBES=y/' .config
           grep -q "CONFIG_KPROBES=y" .config || echo "CONFIG_KPROBES=y" >> .config
 
+          #强制启用kmod-qmi-fix-skb（defconfig可能移除）
+          grep -q "CONFIG_PACKAGE_kmod-qmi-fix-skb=y" .config || echo "CONFIG_PACKAGE_kmod-qmi-fix-skb=y" >> .config
+
           # 强制内核重编
           make target/linux/clean -j$(nproc) || true
 
