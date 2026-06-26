@@ -17,6 +17,7 @@ log() {
 }
 
 cleanup() {
+    resume_qmodem  # 确保退出时恢复 qmodem
     rm -f "$LOCK_FILE"
 }
 trap cleanup EXIT
@@ -54,24 +55,45 @@ detect_modem() {
     return 0
 }
 
-# ====== 发送 AT 命令 ======
+# ====== qmodem 进程控制 (AT 串口互斥) ======
+QMODEM_PID=""
+pause_qmodem() {
+    QMODEM_PID=$(pgrep -f "qmodem" 2>/dev/null | head -1)
+    if [ -n "$QMODEM_PID" ]; then
+        kill -STOP "$QMODEM_PID" 2>/dev/null
+        log "Paused qmodem (PID=$QMODEM_PID) for AT safety"
+        sleep 1
+    fi
+}
+
+resume_qmodem() {
+    if [ -n "$QMODEM_PID" ]; then
+        kill -CONT "$QMODEM_PID" 2>/dev/null
+        log "Resumed qmodem (PID=$QMODEM_PID)"
+        QMODEM_PID=""
+    fi
+}
+
+# ====== 发送 AT 命令 (带互斥保护) ======
 send_at() {
     local cmd="$1"
+    pause_qmodem
     if [ -n "$AT_PORT" ]; then
         echo -e "${cmd}\r" > "$AT_PORT" 2>/dev/null
         sleep 1
         cat "$AT_PORT" 2>/dev/null | head -5
     elif [ -n "$MODEM_DEV" ]; then
-        uqmi -d "$MODEM_DEV" --send-at "$cmd" 2>/dev/null
+        timeout 5 uqmi -d "$MODEM_DEV" --send-at "$cmd" 2>/dev/null
     elif pgrep -x "ModemManager" >/dev/null 2>&1; then
         mmcli -m 0 --command="$cmd" 2>/dev/null
     fi
+    resume_qmodem
 }
 
 # ====== 获取信号信息 ======
 get_signal() {
     if [ -n "$MODEM_DEV" ]; then
-        local info=$(uqmi -d "$MODEM_DEV" --get-signal-info 2>/dev/null)
+        local info=$(timeout 3 uqmi -d "$MODEM_DEV" --get-signal-info 2>/dev/null)
         local sinr=$(echo "$info" | grep -o '"sinr":[0-9.e+-]*' | head -1 | cut -d: -f2)
         local rsrp=$(echo "$info" | grep -o '"rsrp":-*[0-9]*' | head -1 | cut -d: -f2)
         echo "sinr=${sinr:-0} rsrp=${rsrp:-0}"
