@@ -1,7 +1,7 @@
 --[[
 /usr/lib/lua/luci/model/cbi/aiqos.lua
-CBI 模型: 状态仪表盘 + 三档预设 + 七开关 + 高级设置
-全中文硬编码，零国际化依赖，兼容 ImmortalWrt 24.10 ucode
+SimpleForm 版本: 绕过 CBI submitstate() 兼容性问题
+兼容 ImmortalWrt 24.10 ucode 调度器
 ]]--
 
 local uci = require("luci.model.uci").cursor()
@@ -13,27 +13,21 @@ local function get_capabilities()
         os.execute("/usr/bin/condition_detect.sh json > /dev/null 2>&1")
         file = io.open("/tmp/aiqos_capability.json", "r")
         if not file then
-            return {
-                wifi_available = false,
-                ebpf_available = false,
-                modem_available = true
-            }
+            return { wifi_available = false, ebpf_available = false, modem_available = true }
         end
     end
     local content = file:read("*all")
     file:close()
     local json = require("luci.jsonc")
-    return json.parse(content) or {
-        wifi_available = false,
-        ebpf_available = false,
-        modem_available = true
-    }
+    return json.parse(content) or { wifi_available = false, ebpf_available = false, modem_available = true }
 end
 
 local caps = get_capabilities()
 
-m = Map("aiqos", "5G AI 信号优化",
+m = SimpleForm("aiqos", "5G AI 信号优化",
     "AIQoS - 基于 cake-autorate + ModemManager 的智能 5G CPE 网络优化")
+m.reset = false
+m.submit = "保存并应用"
 
 -- ====== 状态仪表盘 ======
 m.description = [=[
@@ -77,91 +71,113 @@ loadStatus()
 ]=]
 
 -- ====== 预设配置 ======
-s = m:section(TypedSection, "preset", "预设配置")
-s.anonymous = true
-s.addremove = false
-
-preset = s:option(ListValue, "mode", "优化预设")
+s1 = m:section(SimpleSection, "预设配置")
+preset = s1:option(ListValue, "mode", "优化预设")
 preset:value("normal", "普通用户 - 日常浏览，仅防缓冲膨胀")
 preset:value("gamer", "游戏玩家 - 低延迟游戏与 VoIP")
 preset:value("geek", "极客用户 - 全部功能启用（专家模式）")
-preset.default = "normal"
+preset.default = uci:get("aiqos", "preset", "mode") or "normal"
 preset.rmempty = false
 preset.description = "选择预设将自动配置下方开关，您仍可单独调整。"
 
 -- ====== 功能开关 ======
-s2 = m:section(TypedSection, "switches", "功能开关")
-s2.anonymous = true
-s2.addremove = false
+s2 = m:section(SimpleSection, "功能开关")
 
 o1 = s2:option(Flag, "enable_cake", "① 基础防缓冲膨胀",
     "启用 cake-autorate 动态调整 CAKE 带宽，消除缓冲膨胀")
-o1.default = "1"
+o1.default = uci:get("aiqos", "switches", "enable_cake") or "1"
 o1.rmempty = false
 
 o2 = s2:option(Flag, "enable_sinr", "② 信号自适应",
     "根据 5G SINR 质量动态调整带宽系数")
-o2.default = "1"
+o2.default = uci:get("aiqos", "switches", "enable_sinr") or "1"
 o2.rmempty = false
-if not caps.modem_available then o2.disabled = true end
+if not caps.modem_available then o2.readonly = true end
 
 o3 = s2:option(Flag, "enable_wifi", "③ WiFi 优化",
     "启用 TriTon 自动信道与功率优化")
-o3.default = "0"
+o3.default = uci:get("aiqos", "switches", "enable_wifi") or "0"
 o3.rmempty = false
-if not caps.wifi_available then o3.disabled = true end
+if not caps.wifi_available then o3.readonly = true end
 
 o4 = s2:option(Flag, "enable_ack", "④ 激进 ACK",
     "启用 CAKE ack-filter 激进模式，减少上行冗余 ACK")
-o4.default = "0"
+o4.default = uci:get("aiqos", "switches", "enable_ack") or "0"
 o4.rmempty = false
 
 o5 = s2:option(Flag, "enable_night_lock", "⑤ 夜间锁频",
     "凌晨 3 点自动扫描并锁定最佳小区（伴有 3-5 秒断连）")
-o5.default = "0"
+o5.default = uci:get("aiqos", "switches", "enable_night_lock") or "0"
 o5.rmempty = false
-if not caps.modem_available then o5.disabled = true end
+if not caps.modem_available then o5.readonly = true end
 
 o6 = s2:option(Flag, "enable_ebpf", "⑥ eBPF 极限丢包",
     "在 XDP 层智能丢弃低价值批量数据包（专家功能）")
-o6.default = "0"
+o6.default = uci:get("aiqos", "switches", "enable_ebpf") or "0"
 o6.rmempty = false
-if not caps.ebpf_available then o6.disabled = true end
+if not caps.ebpf_available then o6.readonly = true end
 
 o7 = s2:option(Flag, "enable_ai", "⑦ AI 预测（实验性）",
     "启用基于 CNN 的信号趋势预测以提前调整参数")
-o7.default = "0"
+o7.default = uci:get("aiqos", "switches", "enable_ai") or "0"
 o7.rmempty = false
-o7:depends("show_advanced", "1")
 
 -- ====== 高级设置 ======
-s3 = m:section(TypedSection, "advanced", "高级设置")
-s3.anonymous = true
-s3.addremove = false
+s3 = m:section(SimpleSection, "高级设置")
 
 a0 = s3:option(Flag, "show_advanced", "显示实验性功能")
-a0.default = "0"
+a0.default = uci:get("aiqos", "advanced", "show_advanced") or "0"
 a0.description = "启用后，AI 预测开关将可见，并解锁高级参数调整"
 
 a1 = s3:option(Value, "poll_interval", "信号轮询间隔（秒）")
 a1.datatype = "uinteger"
-a1.default = "2"
-a1:depends("show_advanced", "1")
+a1.default = uci:get("aiqos", "advanced", "poll_interval") or "2"
 
 a2 = s3:option(Value, "min_bandwidth", "最小带宽（Mbps）")
 a2.datatype = "uinteger"
-a2.default = "5"
-a2:depends("show_advanced", "1")
+a2.default = uci:get("aiqos", "advanced", "min_bandwidth") or "5"
 
 a3 = s3:option(Value, "lock_freq", "锁定目标频点")
 a3.datatype = "uinteger"
 a3.optional = true
-a3:depends("enable_night_lock", "1")
+a3.default = uci:get("aiqos", "advanced", "lock_freq") or ""
 a3.description = "例如 5078（n78）。留空则自动扫描。"
 
 -- ====== 保存回调 ======
-function m.on_after_commit(map)
+function m.on_parse(self)
+    local form = luci.http.formvalue
+
+    -- 预设配置
+    local mode = form("mode") or "normal"
+    uci:set("aiqos", "preset", "mode", mode)
+
+    -- 功能开关
+    local sw = "switches"
+    if not uci:get("aiqos", sw) then uci:set("aiqos", sw, "switches") end
+    uci:set("aiqos", sw, "enable_cake", form("enable_cake") or "0")
+    uci:set("aiqos", sw, "enable_sinr", form("enable_sinr") or "0")
+    uci:set("aiqos", sw, "enable_wifi", form("enable_wifi") or "0")
+    uci:set("aiqos", sw, "enable_ack", form("enable_ack") or "0")
+    uci:set("aiqos", sw, "enable_night_lock", form("enable_night_lock") or "0")
+    uci:set("aiqos", sw, "enable_ebpf", form("enable_ebpf") or "0")
+    uci:set("aiqos", sw, "enable_ai", form("enable_ai") or "0")
+
+    -- 高级设置
+    local adv = "advanced"
+    if not uci:get("aiqos", adv) then uci:set("aiqos", adv, "advanced") end
+    uci:set("aiqos", adv, "show_advanced", form("show_advanced") or "0")
+    uci:set("aiqos", adv, "poll_interval", form("poll_interval") or "2")
+    uci:set("aiqos", adv, "min_bandwidth", form("min_bandwidth") or "5")
+    uci:set("aiqos", adv, "lock_freq", form("lock_freq") or "")
+
+    uci:commit("aiqos")
+
+    -- 重启服务
     os.execute("/etc/init.d/aiqosd restart >/dev/null 2>&1 &")
+
+    -- 显示成功消息
+    self.status = "success"
+    self.message = "配置已保存并应用"
 end
 
 return m
