@@ -131,7 +131,18 @@ get_sinr_uqmi() {
 # 通过 qmodem 获取 SINR (备用)
 get_sinr_qmodem() {
     if command -v qmodem >/dev/null 2>&1; then
-        local info=$(timeout 3 qmodem signal 2>/dev/null)
+        local tmpout=$(mktemp)
+        qmodem signal > "$tmpout" 2>/dev/null &
+        local pid=$!
+        local elapsed=0
+        while [ "$elapsed" -lt 3 ]; do
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1; elapsed=$((elapsed + 1))
+        done
+        if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid" 2>/dev/null; fi
+        wait "$pid" 2>/dev/null
+        local info=$(cat "$tmpout")
+        rm -f "$tmpout"
         local sinr=$(echo "$info" | grep -i "sinr" | awk '{print $NF}' | sed 's/[^0-9.-]//g')
         echo "$sinr"
     fi
