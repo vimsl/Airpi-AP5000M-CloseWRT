@@ -3,13 +3,26 @@
 # SINR注入守护进程 - 从uqmi/qmodem读取5G信号质量，输出系数供cake-autorate使用
 # 启动: /etc/init.d/aiqosd start
 # 兼容: qmodem + uqmi 生态 (ImmortalWrt 24.10)
+# 防护: uqmi超时保护 + 随机抖动 + 退避机制 + 日志轮转
 
 SINR_FILE="/tmp/aiqos_sinr_coeff"
 LOG_FILE="/var/log/sinr_injector.log"
-INTERVAL=${SINR_INJECTOR_INTERVAL:-2}
+LOG_MAX_SIZE=102400  # 100KB 日志上限
+BASE_INTERVAL=${SINR_INJECTOR_INTERVAL:-2}
+UQMI_TIMEOUT=3       # uqmi 超时秒数
+BACKOFF_MAX=30       # 最大退避间隔
+CONSECUTIVE_TIMEOUTS=0
+MAX_TIMEOUTS=3       # 连续超时次数触发退避
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+    # 日志轮转
+    local size=$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$size" -gt "$LOG_MAX_SIZE" ]; then
+        tail -n 200 "$LOG_FILE" > "${LOG_FILE}.tmp"
+        mv "${LOG_FILE}.tmp" "$LOG_FILE"
+        log "Log rotated (was ${size} bytes)"
+    fi
 }
 
 # 检测 modem 设备路径
@@ -23,13 +36,26 @@ detect_modem() {
     return 1
 }
 
+# 带超时保护的 uqmi 调用
+uqmi_safe() {
+    timeout "$UQMI_TIMEOUT" uqmi "$@" 2>/dev/null
+    local ret=$?
+    if [ "$ret" -eq 124 ]; then
+        return 1  # timeout
+    fi
+    return "$ret"
+}
+
 # 通过 uqmi 获取 SINR
 get_sinr_uqmi() {
     local dev=$(detect_modem)
     [ -z "$dev" ] && return 1
 
-    local info=$(uqmi -d "$dev" --get-signal-info 2>/dev/null)
-    [ -z "$info" ] && return 1
+    local info=$(uqmi_safe -d "$dev" --get-signal-info)
+    local ret=$?
+    if [ "$ret" -ne 0 ] || [ -z "$info" ]; then
+        return 1
+    fi
 
     # 尝试解析 5G NR SINR
     local sinr=$(echo "$info" | grep -o '"sinr":[0-9.e+-]*' | head -1 | cut -d: -f2)
@@ -53,7 +79,7 @@ get_sinr_uqmi() {
 # 通过 qmodem 获取 SINR (备用)
 get_sinr_qmodem() {
     if command -v qmodem >/dev/null 2>&1; then
-        local info=$(qmodem signal 2>/dev/null)
+        local info=$(timeout 3 qmodem signal 2>/dev/null)
         local sinr=$(echo "$info" | grep -i "sinr" | awk '{print $NF}' | sed 's/[^0-9.-]//g')
         echo "$sinr"
     fi
@@ -61,7 +87,6 @@ get_sinr_qmodem() {
 
 # 通过 sysfs 获取信号信息 (最后备用)
 get_sinr_sysfs() {
-    # 尝试从 /sys/class/net/wwan0 读取
     if [ -f /sys/class/net/wwan0/carrier ]; then
         local rssi=$(cat /sys/class/net/wwan0/rssi 2>/dev/null)
         if [ -n "$rssi" ]; then
@@ -127,7 +152,7 @@ ewma_filter() {
 }
 
 main() {
-    log "SINR Injector started (interval=${INTERVAL}s, method=uqmi/sysfs)"
+    log "SINR Injector started (interval=${BASE_INTERVAL}s, uqmi_timeout=${UQMI_TIMEOUT}s)"
 
     local dev=$(detect_modem)
     if [ -z "$dev" ]; then
@@ -139,6 +164,19 @@ main() {
     local counter=0
     while true; do
         local raw_sinr=$(get_sinr)
+        local sinr_ret=$?
+
+        if [ "$sinr_ret" -ne 0 ] || [ -z "$raw_sinr" ] || [ "$raw_sinr" = "null" ]; then
+            # 获取失败，计入连续超时
+            CONSECUTIVE_TIMEOUTS=$((CONSECUTIVE_TIMEOUTS + 1))
+            if [ "$CONSECUTIVE_TIMEOUTS" -ge "$MAX_TIMEOUTS" ]; then
+                log "WARNING: ${CONSECUTIVE_TIMEOUTS} consecutive timeouts, backing off"
+            fi
+        else
+            # 获取成功，重置计数
+            CONSECUTIVE_TIMEOUTS=0
+        fi
+
         local coeff=$(sinr_to_coeff "$raw_sinr")
         local smoothed=$(ewma_filter "$coeff")
         local timestamp=$(date '+%s')
@@ -146,10 +184,20 @@ main() {
 
         counter=$((counter + 1))
         if [ $((counter % 5)) -eq 0 ]; then
-            log "SINR=${raw_sinr}dB -> coeff=${smoothed}"
+            log "SINR=${raw_sinr}dB -> coeff=${smoothed} (timeouts=${CONSECUTIVE_TIMEOUTS})"
         fi
 
-        sleep "$INTERVAL"
+        # 动态间隔: 正常2秒, 退避时递增到最大30秒
+        local sleep_time=$BASE_INTERVAL
+        if [ "$CONSECUTIVE_TIMEOUTS" -ge "$MAX_TIMEOUTS" ]; then
+            sleep_time=$((BACKOFF_MAX < BASE_INTERVAL * CONSECUTIVE_TIMEOUTS ? BACKOFF_MAX : BASE_INTERVAL * CONSECUTIVE_TIMEOUTS))
+        fi
+
+        # 随机抖动 0-2 秒, 避免与 qmodem 探测窗口撞车
+        local jitter=$((RANDOM % 3))
+        sleep_time=$((sleep_time + jitter))
+
+        sleep "$sleep_time"
     done
 }
 
