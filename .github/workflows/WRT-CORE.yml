@@ -186,19 +186,42 @@ jobs:
 
       - name: Patch HNAT DTS
         run: |
-          # 修复HNAT绑定wwan接口导致skb_tailroom冲突
-          find ./wrt/target/linux/mediatek -name "*.dts" -o -name "*.dtsi" | while read dts_file; do
-            if grep -q "ext-devices-prefix" "$dts_file" 2>/dev/null; then
-              echo "Patching HNAT in: $dts_file"
-                            # 确保 wwan0 在 HNAT 白名单中
-              if ! grep "ext-devices-prefix" "$dts_file" | grep -q "wwan"; then
-                echo "Adding wwan to ext-devices-prefix: $dts_file"
-                sed -i 's/ext-devices-prefix = "\(.*\)"/ext-devices-prefix = "\1,wwan"/' "$dts_file"
-              else
-                echo "wwan already in ext-devices-prefix: $dts_file"
-              fi
+          echo "=== HNAT DTS: Inject usb0 whitelist + ensure wwan prefix ==="
 
+          find ./wrt/target/linux/mediatek -name "*.dts" -o -name "*.dtsi" | while read dts_file; do
+            PATCHED=0
+
+            # Layer 1: Ensure ext-devices = "usb0" in hnat node
+            if grep -q "[&]*hnat[[:space:]]*{" "$dts_file" 2>/dev/null; then
+              if ! grep -q 'ext-devices.*usb0' "$dts_file" 2>/dev/null; then
+                echo "[usb0] Injecting ext-devices = \"usb0\" into $dts_file"
+                sed -i '/[&]*hnat[[:space:]]*{/a\\t\text-devices = "usb0";' "$dts_file"
+                PATCHED=1
+              else
+                echo "[usb0] Already present in $dts_file"
+              fi
             fi
+
+            # Layer 2: Ensure wwan in ext-devices-prefix
+            if grep -q "ext-devices-prefix" "$dts_file" 2>/dev/null; then
+              if ! grep "ext-devices-prefix" "$dts_file" | grep -q "wwan"; then
+                echo "[wwan] Adding wwan to ext-devices-prefix: $dts_file"
+                sed -i 's/ext-devices-prefix = "\\(.*\\)"/ext-devices-prefix = "\\1,wwan"/' "$dts_file"
+                PATCHED=1
+              else
+                echo "[wwan] Already in ext-devices-prefix: $dts_file"
+              fi
+            fi
+
+            if [ "$PATCHED" -eq 0 ]; then
+              echo "No hnat node or prefix found in $dts_file (skip)"
+            fi
+          done
+
+          echo "=== Verification ==="
+          find ./wrt/target/linux/mediatek -name "*.dts" -o -name "*.dtsi" | xargs grep -l "ext-devices" 2>/dev/null | while read f; do
+            echo "--- $f ---"
+            grep -A5 "hnat" "$f" | head -10
           done
 
       - name: Custom Settings
