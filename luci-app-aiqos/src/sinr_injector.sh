@@ -144,6 +144,14 @@ get_sinr_qmodem() {
         local info=$(cat "$tmpout")
         rm -f "$tmpout"
         local sinr=$(echo "$info" | grep -i "sinr" | awk '{print $NF}' | sed 's/[^0-9.-]//g')
+        # 范围验证: SINR 正常范围 -30 ~ 40 dB
+        if [ -n "$sinr" ]; then
+            local sinr_int=$(printf "%.0f" "$sinr" 2>/dev/null)
+            if [ -z "$sinr_int" ] || [ "$sinr_int" -lt -30 ] || [ "$sinr_int" -gt 40 ]; then
+                log "WARNING: qmodem SINR out of range: $sinr, discarding"
+                return 1
+            fi
+        fi
         echo "$sinr"
     fi
 }
@@ -246,10 +254,21 @@ main() {
             CONSECUTIVE_TIMEOUTS=0
         fi
 
-        local coeff=$(sinr_to_coeff "$raw_sinr")
-        local smoothed=$(ewma_filter "$coeff")
-        local timestamp=$(date '+%s')
-        echo "$smoothed $raw_sinr $timestamp" > "$SINR_FILE"
+        # 最终阀值: 过滤明显异常的SINR值 (防止qmodem返回垃圾数据导致GUI显示异常)
+        local sinr_dirty=false
+        if [ -n "$raw_sinr" ] && [ "$raw_sinr" != "null" ]; then
+            local sinr_int=$(printf "%.0f" "$raw_sinr" 2>/dev/null)
+            if [ -z "$sinr_int" ] || [ "$sinr_int" -lt -30 ] || [ "$sinr_int" -gt 40 ]; then
+                sinr_dirty=true
+            fi
+        fi
+
+        if [ "$sinr_dirty" = false ]; then
+            local coeff=$(sinr_to_coeff "$raw_sinr")
+            local smoothed=$(ewma_filter "$coeff")
+            local timestamp=$(date '+%s')
+            echo "$smoothed $raw_sinr $timestamp" > "$SINR_FILE"
+        fi
 
         counter=$((counter + 1))
         if [ $((counter % 5)) -eq 0 ]; then
