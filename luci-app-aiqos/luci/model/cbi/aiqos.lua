@@ -179,8 +179,9 @@ a3.description = "例如 5078（n78）。留空则自动扫描。"
 
 -- ====== 提交回调 ======
 m.on_parse = function(self)
-    -- 检测提交: SimpleForm 的 submit 按钮会发送 submit 参数
-    local btn = luci.http.formvalue("submit")
+    -- 兼容 ucode (ImmortalWrt 24.10) 和传统 Lua 调度器
+    -- ucode 下 submit 按钮名称为 cbi.submit，传统 Lua 下为 submit
+    local btn = luci.http.formvalue("cbi.submit") or luci.http.formvalue("submit")
     if not btn then return end
 
     local val = luci.http.formvalue
