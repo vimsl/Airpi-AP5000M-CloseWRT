@@ -121,16 +121,21 @@ jobs:
             sed -i '/.cn\//d; /tencent/d; /aliyun/d' "$PROJECT_MIRRORS_FILE"
           fi
 
-          # 删除未带 #ifdef CONFIG_NET_MEDIATEK_HNAT 保护的 HNAT 补丁
-          # 这些补丁在内核中插入无保护的 HNAT API 调用，未启用 HNAT 时编译失败
-          # 999-2745 已有条件编译保护，保留；9996/9999 无保护，必须删除
+          # 删除完整的 HNAT 补丁链（9996→9998→99999 互相依赖，9999 独立使用 HNAT 符号）
+          # 这些补丁插入无保护的 HNAT API 调用（HNAT_SKB_CB2/HIT_BIND_FORCE_TO_CPU），
+          # 未启用 CONFIG_NET_MEDIATEK_HNAT 时编译失败。
+          # 999-2745 已有条件编译保护，保留。
+          # 9998-dsa.patch 的 TDTECH USB ID 部分已提取为独立的 9998-tdtech-usb.patch。
           HNAT_PATCH_DIR="target/linux/mediatek/patches-6.6"
-          for PATCH in 9996-ext-hnat.patch 9999-reset.patch; do
+          for PATCH in 9996-ext-hnat.patch 9998-dsa.patch 9999-reset.patch 99999-hnat-extdevice-fix-fdberr.patch; do
             if [ -f "$HNAT_PATCH_DIR/$PATCH" ]; then
               rm -f "$HNAT_PATCH_DIR/$PATCH"
               echo "Removed unprotected HNAT patch: $PATCH"
             fi
           done
+
+          # 注入 TDTECH USB ID 补丁（FM170 Modem 支持，从 9998-dsa.patch 提取）
+          cp -f "$GITHUB_WORKSPACE/Scripts/9998-tdtech-usb.patch" "$HNAT_PATCH_DIR/"
 
       - name: Check Scripts
         run: |
