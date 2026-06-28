@@ -135,8 +135,21 @@ jobs:
             fi
           done
 
-          # 注入能力标志修正补丁（从 9999-02 提取的 MTK_SRAM/MTK_HWLRO 移除）
-          cp -f "$GITHUB_WORKSPACE/Scripts/9999-02-capability.patch" "$HNAT_PATCH_DIR/"
+      - name: Prepare Kernel & Fix Capability
+        run: |
+          cd ./wrt/
+          make target/linux/prepare V=s -j$(nproc)
+          TARGET_H="build_dir/target-aarch64_cortex-a53_musl/linux-mediatek_filogic/linux-6.6.94/drivers/net/ethernet/mediatek/mtk_eth_soc.h"
+          if [ -f "$TARGET_H" ]; then
+            echo "=== Before fix ==="
+            grep -n "MT7981_CAPS\|MT7986_CAPS" "$TARGET_H"
+            sed -i 's/| MTK_SRAM | MTK_PDMA_INT | MTK_HWLRO)/| MTK_PDMA_INT)/g' "$TARGET_H"
+            echo "=== After fix ==="
+            grep -n "MT7981_CAPS\|MT7986_CAPS" "$TARGET_H"
+          else
+            echo "ERROR: mtk_eth_soc.h not found!"
+            find build_dir -name "mtk_eth_soc.h" 2>/dev/null
+          fi
 
       - name: Check Scripts
         run: |
