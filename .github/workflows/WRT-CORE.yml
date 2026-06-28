@@ -136,7 +136,7 @@ jobs:
           done
 
           # 注入 TDTECH USB ID 补丁（FM170 Modem 支持，从原始 9998-dsa.patch 提取）
-          cp -f "$GITHUB_WORKSPACE/Scripts/9998-tdtech-usb.patch" "$HNAT_PATCH_DIR/"
+          cp -f "$GITHUB_WORKSPACE/Scripts/9998-a-tdtech-usb.patch" "$HNAT_PATCH_DIR/"
           # 注入能力标志修正补丁（从 9999-02 提取的 MTK_SRAM/MTK_HWLRO 移除）
           cp -f "$GITHUB_WORKSPACE/Scripts/9999-02-capability.patch" "$HNAT_PATCH_DIR/"
 
