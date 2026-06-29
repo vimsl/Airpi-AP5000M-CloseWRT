@@ -55,9 +55,9 @@ jobs:
         REPO_INFO:
           - {SOURCE: "padavanonly/immortalwrt-mt798x-6.6", BRANCH: "mt798x-mt799x-6.6-mtwifi"}
 
-    timeout-minutes: 300
     #调用公用编译核心WRT-CORE.yml
     uses: ./.github/workflows/WRT-CORE.yml
+    timeout-minutes: 300
     with:
       #编译配置
       WRT_CONFIG: ${{matrix.CONFIG}}
