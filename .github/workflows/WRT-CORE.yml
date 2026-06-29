@@ -151,6 +151,14 @@ jobs:
             find build_dir -name "mtk_eth_soc.h" 2>/dev/null
           fi
 
+      - name: Fix Dual-Forward Speed Drop
+        run: |
+          mkdir -p ./wrt/files/etc/sysctl.d
+          cat > ./wrt/files/etc/sysctl.d/99-disable-sw-offload.conf << 'EOF'
+          net.netfilter.nf_flowtable_offload=0
+          EOF
+          cat ./wrt/files/etc/sysctl.d/99-disable-sw-offload.conf
+
       - name: Check Scripts
         run: |
           find ./ -maxdepth 3 -type f -iregex ".*\(txt\|sh\)$" -exec dos2unix {} \; -exec chmod +x {} \;
