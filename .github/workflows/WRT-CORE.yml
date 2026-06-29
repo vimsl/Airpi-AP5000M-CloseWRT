@@ -63,6 +63,7 @@ env:
 jobs:
   core:
     name: ${{inputs.WRT_SOURCE}}
+    timeout-minutes: 300
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Projects
