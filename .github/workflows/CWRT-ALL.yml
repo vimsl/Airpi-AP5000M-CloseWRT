@@ -47,9 +47,10 @@ jobs:
   config:
     needs: cleanup
     name: ${{matrix.CONFIG}}
+    timeout-minutes: 300
     strategy:
       fail-fast: false
-      #max-parallel: 4
+      max-parallel: 4
       matrix:
         CONFIG: [modem, qmodem]
         REPO_INFO:
