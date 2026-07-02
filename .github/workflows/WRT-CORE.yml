@@ -157,9 +157,7 @@ jobs:
           echo "=== Applying FM170eau patches ==="
           # Copy patches into wrt/
           cp -f ../patches/*.patch ./patches/ 2>/dev/null || true
-          echo "Available patches:"
-          ls -la ./patches/
-
+          
           # Find kernel source
           KERNEL_SRC=$(find build_dir -path "*/linux-6.6.94" -type d 2>/dev/null | head -1)
           if [ -z "$KERNEL_SRC" ]; then
@@ -167,56 +165,96 @@ jobs:
             exit 1
           fi
           echo "Kernel source: $KERNEL_SRC"
+          
+          # Use Python for patching to avoid YAML escaping issues
+          python3 << 'EOF'
+import os, re, sys
 
-          # Apply USB ID patch for option.c
-          OPTION_C="$KERNEL_SRC/drivers/usb/serial/option.c"
-          if [ -f "$OPTION_C" ]; then
-            # FM170 0x01a0 PID already in option.c from upstream 6.6,
-            # just add 0x0102 (ECM/RNDIS) and explicit MBIM entry
-            if ! grep -q "0x0102.*Fibocom.*FM170" "$OPTION_C"; then
-              sed -i "/Fibocom FM101-GL.*RSVD(4)/a\
-\	{ USB_DEVICE_INTERFACE_CLASS(0x2cb7, 0x0102, 0xff) },	/* Fibocom FM170 (ECM/RNDIS mode) */\
-\	{ USB_DEVICE(0x2cb7, 0x01a0) },				/* Fibocom FM170-GL (MBIM mode) */" "$OPTION_C"
-              echo "Patched option.c - added FM170 0x0102 PID"
-            else
-              echo "option.c already patched"
-            fi
-          else
-            echo "option.c not found"
-          fi
+kernel_src = os.environ.get('KERNEL_SRC', '')
+if not kernel_src:
+    print("KERNEL_SRC not set")
+    sys.exit(1)
 
-          # Apply FM170 QMI WWAN patch
-          QMI_C="$KERNEL_SRC/drivers/net/usb/qmi_wwan.c"
-          if [ -f "$QMI_C" ]; then
-            if ! grep -q "0x01a0.*Fibocom FM170" "$QMI_C"; then
-              sed -i "/Fibocom FG132/a\
-\	{QMI_FIXED_INTF(0x2cb7, 0x01a0, 4)},		/* Fibocom FM170-GL (MBIM mode) */\
-\	{QMI_FIXED_INTF(0x2cb7, 0x0102, 4)},		/* Fibocom FM170 (ECM/RNDIS mode) */" "$QMI_C"
-              echo "Patched qmi_wwan.c - added FM170 QMI interface"
-            else
-              echo "qmi_wwan.c already patched"
-            fi
-          else
-            echo "qmi_wwan.c not found"
-          fi
+# 1. Patch option.c
+option_c = os.path.join(kernel_src, 'drivers/usb/serial/option.c')
+if os.path.exists(option_c):
+    with open(option_c, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+    
+    # Check if FM170 0x0102 already exists
+    if '0x0102.*Fibocom.*FM170' not in content:
+        # Find Fibocom FM101-GL line
+        lines = content.split('\n')
+        new_lines = []
+        for line in lines:
+            new_lines.append(line)
+            if 'Fibocom FM101-GL' in line and 'RSVD(4)' in line:
+                # Add after this line
+                new_lines.append('\t{ USB_DEVICE_INTERFACE_CLASS(0x2cb7, 0x0102, 0xff) },	/* Fibocom FM170 (ECM/RNDIS mode) */')
+                new_lines.append('\t{ USB_DEVICE(0x2cb7, 0x01a0) },				/* Fibocom FM170-GL (MBIM mode) */')
+        
+        with open(option_c, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(new_lines))
+        print("Patched option.c - added FM170 0x0102 and 0x01a0 PIDs")
+    else:
+        print("option.c already patched")
+else:
+    print("option.c not found")
 
-          # Apply qmi_wwan tailroom fix
-          if [ -f "$QMI_C" ]; then
-            if ! grep -q "skb_tailroom.*ETH_DATA_LEN" "$QMI_C"; then
-              sed -i "/while (skb->len > 0) {/i\
-\		/* Ensure enough tailroom for PPPoE/VLAN encapsulation */\
-\		if (skb_tailroom(skb) < ETH_DATA_LEN) {\
-\			struct sk_buff *new_skb = skb_copy_expand(skb, 0, ETH_DATA_LEN, GFP_ATOMIC);\
-\			dev_kfree_skb_any(skb);\
-\			skb = new_skb ? : skb;\
-\		}\
-" "$QMI_C"
-              echo "Patched qmi_wwan.c - added tailroom fix"
-            else
-              echo "tailroom fix already applied"
-            fi
-          fi
+# 2. Patch qmi_wwan.c
+qmi_c = os.path.join(kernel_src, 'drivers/net/usb/qmi_wwan.c')
+if os.path.exists(qmi_c):
+    with open(qmi_c, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+    
+    # Check if FM170 already exists
+    if '0x01a0.*Fibocom FM170' not in content:
+        # Find Fibocom FG132 line
+        lines = content.split('\n')
+        new_lines = []
+        for line in lines:
+            new_lines.append(line)
+            if 'Fibocom FG132' in line:
+                # Add after this line
+                new_lines.append('\t{QMI_FIXED_INTF(0x2cb7, 0x01a0, 4)},		/* Fibocom FM170-GL (MBIM mode) */')
+                new_lines.append('\t{QMI_FIXED_INTF(0x2cb7, 0x0102, 4)},		/* Fibocom FM170 (ECM/RNDIS mode) */')
+        
+        with open(qmi_c, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(new_lines))
+        print("Patched qmi_wwan.c - added FM170 QMI interface")
+    else:
+        print("qmi_wwan.c already patched")
+else:
+    print("qmi_wwan.c not found")
 
+# 3. Apply tailroom fix
+if os.path.exists(qmi_c):
+    with open(qmi_c, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+    
+    if 'skb_tailroom.*ETH_DATA_LEN' not in content:
+        # Find while (skb->len > 0) { line
+        lines = content.split('\n')
+        new_lines = []
+        for i, line in enumerate(lines):
+            new_lines.append(line)
+            if 'while (skb->len > 0) {' in line:
+                # Insert before this line
+                new_lines[-1] = '\t\t/* Ensure enough tailroom for PPPoE/VLAN encapsulation */'
+                new_lines.append('\t\tif (skb_tailroom(skb) < ETH_DATA_LEN) {')
+                new_lines.append('\t\t\tstruct sk_buff *new_skb = skb_copy_expand(skb, 0, ETH_DATA_LEN, GFP_ATOMIC);')
+                new_lines.append('\t\t\tdev_kfree_skb_any(skb);')
+                new_lines.append('\t\t\tskb = new_skb ? : skb;')
+                new_lines.append('\t\t}')
+                new_lines.append(line)
+        
+        with open(qmi_c, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(new_lines))
+        print("Patched qmi_wwan.c - added tailroom fix")
+    else:
+        print("tailroom fix already applied")
+
+EOF
           echo "=== FM170eau patches applied ==="
 
       - name: Fix Dual-Forward Speed Drop
