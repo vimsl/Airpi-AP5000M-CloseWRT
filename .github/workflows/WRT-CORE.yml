@@ -1,4 +1,4 @@
-﻿#云编译公用核心
+#云编译公用核心
 name: WRT-CORE
 
 on:
@@ -63,7 +63,7 @@ env:
 jobs:
   core:
     name: ${{inputs.WRT_SOURCE}}
-    timeout-minutes: 360
+    timeout-minutes: 480
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Projects
@@ -102,7 +102,7 @@ jobs:
         run: |
           if [ -n "$WRT_COMMIT" ]; then
             echo "Pinning to commit: $WRT_COMMIT"
-            git clone --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
+            git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
             cd ./wrt/ && git checkout $WRT_COMMIT
           else
             git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
@@ -189,6 +189,7 @@ jobs:
           key: ${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{env.WRT_HASH}}
           restore-keys: ${{env.WRT_CONFIG}}-${{env.WRT_INFO}}
           path: |
+            ./wrt/dl
             ./wrt/.ccache
             ./wrt/staging_dir/host*
             ./wrt/staging_dir/tool*
@@ -389,3 +390,4 @@ jobs:
 
             内核版本：${{env.WRT_KVER}}
             插件列表：${{env.WRT_LIST}}
+
